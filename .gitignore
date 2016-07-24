@@ -1,0 +1,8 @@
+.vscode
+nimcache/
+build/
+nimsuggest.log
+*.swp
+*.bak
+*.*~
+*.tmp
