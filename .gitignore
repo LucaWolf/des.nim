@@ -3,6 +3,7 @@ nimcache/
 build/
 nimsuggest.log
 *.swp
+*.exe
 *.bak
 *.*~
 *.tmp
