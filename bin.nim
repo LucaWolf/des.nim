@@ -1,6 +1,6 @@
 import strutils, sequtils, endians
 
-# rotate left with wrap-around
+#-----------------
 proc rol*(x: uint8, y: uint8): uint8 =
     result = (x shl (y and 7'u8)) or (x shr (8'u8 - (y and 7'u8)))
 
@@ -11,9 +11,10 @@ proc rol*(x: uint32, y: uint8): uint32 =
     result = (x shl (y and 31'u8)) or (x shr (32'u8 - (y and 31'u8)))
 
 proc rol*(x: uint64, y: uint8): uint64 =
+    ## rotates left with wrap-around any unsigned integer
     result = (x shl (y and 63'u8)) or (x shr (64'u8 - (y and 63'u8)))
 
-# rotate right with wrap-around
+#-----------------
 proc ror*(x: uint8, y: uint8): uint8 =
     result = (x shr (y and 7'u8)) or (x shl (8'u8 - (y and 7'u8)))
 
@@ -24,7 +25,10 @@ proc ror*(x: uint32, y: uint8): uint32 =
     result = (x shr (y and 31'u8)) or (x shl (32'u8 - (y and 31'u8)))
 
 proc ror*(x: uint64, y: uint8): uint64 =
+    ## rotates right with wrap-around any unsigned integer
     result = (x shr (y and 63'u8)) or (x shl (64'u8 - (y and 63'u8)))
+#-----------------
+
 
 type
     binBufferObj = object

@@ -4,6 +4,7 @@ build/
 nimsuggest.log
 *.swp
 *.exe
+*.html
 *.bak
 *.*~
 *.tmp

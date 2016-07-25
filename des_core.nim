@@ -19,6 +19,7 @@ proc cookey(raw: subkeys, key: var subkeys) =
         k2[] =  k2[] or ((raw0 and 0x0000003f'u32) shl 16'u8)
         k2[] =  k2[] or ((raw1 and 0x0003f000'u32) shr 4'u8)
         k2[] =  k2[] or  (raw1 and 0x0000003f'u32)
+        
 
 #---------
 proc initKeys(keyin: openArray[byte], edf: blockOp, keyout: var subkeys) = 
@@ -148,16 +149,16 @@ type
     desCipher* = ref desCipherObj 
         
     des3CipherObj = object
-        key1Enc, key1Dec: subkeys
-        key2Enc, key2Dec: subkeys
-        key3Enc, key3Dec: subkeys
+        keyEnc: array[3, subkeys]
+        keyDec: array[3, subkeys]
         iv: array[2, uint32]
-    des3Cipher* = ref des3CipherObj 
+    des3Cipher* = ref des3CipherObj
+
 
 #---------
-proc cryptBlock(cipher: desCipher, src, dst: binBuffer, mode: blockMode, operation: blockOp) =
+proc cryptBlock[T: desCipher|des3Cipher](cipher: T, src, dst: binBuffer, mode: blockMode, operation: blockOp) =
     if (src.len != desBlockSize) or (dst.len != desBlockSize):
-        raise newException(ResourceExhaustedError, "Not block")
+        raise newException(RangeError, "Not block")
     var
         work: array[2, uint32]
         tmp: array[2, uint32]
@@ -175,7 +176,20 @@ proc cryptBlock(cipher: desCipher, src, dst: binBuffer, mode: blockMode, operati
             # decryption needs the previous encrypted block as iv
             tmp[0] = work[0]; tmp[1] = work[1]
     
-    if operation == opEncrypt: desfunc(work, cipher.keyEnc) else: desfunc(work, cipher.keyDec)
+    if operation == opEncrypt:
+        when T is desCipher:
+            desfunc(work, cipher.keyEnc)
+        else:
+            desfunc(work, cipher.keyEnc[0]);
+            desfunc(work, cipher.keyEnc[1]); # key created as opDecrypt
+            desfunc(work, cipher.keyEnc[2]);
+    else:
+        when T is desCipher:
+            desfunc(work, cipher.keyDec)
+        else:
+            desfunc(work, cipher.keyDec[0]);
+            desfunc(work, cipher.keyDec[1]); # key created as opEncrypt
+            desfunc(work, cipher.keyDec[2]);
 
     # CBC only
     if mode == modeCBC:
