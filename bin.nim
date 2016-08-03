@@ -1,4 +1,5 @@
 import strutils, sequtils, endians
+include bin_utils
 
 #-----------------
 proc rol*(x: uint8, y: uint8): uint8 =
@@ -78,16 +79,54 @@ proc `[]`*(buff: binBuffer, s: Slice[int]): binBuffer =
     if result.view.a > result.view.b:
         swap (result.view.a, result.view.b)
 
+iterator items*(buff: binBuffer): byte =
+  for n in buff.view:
+    yield buff[n]
+
+iterator mitems*(buff: binBuffer): var byte =
+  for n in buff.view:
+    yield buff[n]
+
+iterator citems*(data: openArray[byte]): byte {.closure.} = 
+    var
+        n = data.len
+        i = 0
+
+    while true:
+        yield data[i]
+        if i == <n: i = 0 else: inc(i)
+
+iterator citems1*(data: binBuffer): byte {.closure.} = 
+    var
+        n = data.len
+        i = 0
+
+    while true:
+        yield data[i]
+        if i == <n: i = 0 else: inc(i)
+
+
+# need several variants. How to merge into generics without any system.xor conflict?
+proc `xor`*[T](buff: seq[T], mask: openArray[T]): seq[T] = 
+    var c = citems
+    result = buff.mapIt(it xor c(mask))
+
+proc `xor`*[T](buff: binBuffer, mask: openArray[T]): seq[T] = 
+    var c = citems
+    result = buff.mapIt(it xor c(mask))
+
+proc `xor`*(buff: binBuffer, mask: binBuffer): seq[byte] = 
+    var c = citems1
+    result = buff.mapIt(it xor c(mask))
+
+proc `xor`*[T](buff: seq[T], mask: binBuffer): seq[T] =
+    var c = citems1
+    result = buff.mapIt(it xor c(mask))
+
+
 proc copy*(dst: binBuffer; src: binBuffer) = 
     var n = (src.len).clamp(0, dst.len)
     copyMem(addr dst.data[dst.view.a], addr src.data[src.view.a], n)
-
-proc toHex*(buff: binBuffer, prefixed: bool = true): string =
-    result = newStringOfCap(buff.len + 2)
-    if prefixed:
-        result.add("0x")
-    for i in 0 .. <buff.len:
-        result.add(toHex((int16)buff[i], 2))
 
 
 #-----------------------
@@ -147,79 +186,3 @@ proc storeHigh*[T: SomeUnsignedInt](buff: binBuffer, value: T, offset: int = 0):
     else:
       result = false
       assert(false, "Invalid store offset: " & $n & " in " & $buff.view)
-
-
-#-----------------------
-template seqOf*[T,N] (buff: openarray[T]): expr =
-    ## Script to help with declaration of new sequences of type N based on an array of 
-    ## values of type T. Internally, a conversion call *proc (x: T): N = x.N*
-    ## is attempted, so the conversion function would better exists already.
-    ## 
-    ## For example, the following call preserves only the LSB from each input when defining 
-    ## an aray of unsigned 8 bit integers:
-    ##
-    ##      data = seqOf[int,byte]([0x5C01, 0x0A] # is equivalent to 
-    ##      data: seq[byte] = @[0x01'ui8, 0x0A'ui8]
-    
-    map[T, N](buff, proc (x: T): N = x.N)
-
-
-proc toHex*[T](buff: openarray[T], prefixed: bool = true): string =
-   result = foldl(buff, a & toHex((BiggestInt)b, T.sizeOf * 2), if prefixed: "0x" else: "")
-   # note-1: cannot use foldl (buff, toHex() & toHex()) form  as the 1st param type does not match. Cannot change type inline of a?
-   # note-2: needs extra parameter to change API signature otherwise it conflicts? with standard toHex[T](x: T): string
-
-
-proc fromHex*(s: string): seq[byte] =
-    ## Parses a hexadecimal sequence contained in `s`.
-    ##
-    ## If `s` is not a valid hex array, `ValueError` is raised. `s` can have one
-    ## of the following optional prefixes: ``0x``, ``0X``, ``#``.  Underscores
-    ## within `s` are ignored.
-    var
-        i = 0
-        j = 0 # nibbles found
-        startPot = false
-        lsn, msn: byte # less/most significant nibble
-
-    if s[i] == '0' and (s[i+1] == 'x' or s[i+1] == 'X'): inc(i, 2)
-    elif s[i] == '#': inc(i)
-
-    result = @[]
-
-    while i < s.len:
-        msn = lsn
-        case s[i]
-        of '_', ':', '-':
-            inc(i)
-            startPot = false
-        of '0'..'9':
-            lsn = (ord(s[i]) - ord('0')).byte
-            inc(i)
-            inc(j)
-            startPot = true
-        of 'a'..'f':
-            lsn = (ord(s[i]) - ord('a') + 10).byte
-            inc(i)
-            inc(j)
-            startPot = true
-        of 'A'..'F':
-            lsn = (ord(s[i]) - ord('A') + 10).byte
-            inc(i)
-            inc(j)
-            startPot = true
-        of '\0': break
-        else: raise newException(ValueError, "invalid hex: " & s)
-
-        if startPot and ((j and 1) == 0): 
-            result.add(msn shl 4 or lsn)
-    
-    # leading zero if odd length of input
-    if (j and 1) == 1:
-        result.add(lsn shl 4)
-        msn = 0'u8
-        for i in 0 .. <result.len:
-            lsn = result[i] and 0x0F'u8
-            result[i] = (result[i] shr 4) or (msn shl 4)
-            msn = lsn
-
