@@ -43,7 +43,7 @@ proc len*(buff: binBuffer): int =
     result = buff.view.b - buff.view.a + 1
 
 
-proc toBinBuffer*[T](data: openArray[T]): binBuffer = 
+proc toBinBuffer*[T](data: openArray[T]): binBuffer =
     new(result)
     result.data = cast[cstring](unsafeAddr data[0])
     result.size = data.len * T.sizeof
@@ -64,14 +64,14 @@ proc `[]=`*(buff: binBuffer, n: int, val: byte) =
     cast[ptr byte](addr buff.data[buff.view.a + n])[] = val
 
 
-proc `[]`*(buff: binBuffer, s: Slice[int]): binBuffer = 
-    ## Slices `buff` to (and including) the desired limits. The underlying data array 
+proc `[]`*(buff: binBuffer, s: Slice[int]): binBuffer =
+    ## Slices `buff` to (and including) the desired limits. The underlying data array
     ## is shared across slices. The 's' limits are limited to the
     ## original data size so is possible to grow back a slice up to
-    ## the maximum size. 
+    ## the maximum size.
     new(result)
     shallowCopy(result[], buff[])
-    
+
     # allow expanding to original size
     result.view.b = (buff.view.a + s.b).clamp(0, <buff.size)
     result.view.a = (buff.view.a + s.a).clamp(0, <buff.size)
@@ -87,44 +87,32 @@ iterator mitems*(buff: binBuffer): var byte =
   for n in buff.view:
     yield buff[n]
 
-iterator citems*(data: openArray[byte]): byte {.closure.} = 
+# # new sequence returned; mapIt name conflicts with the obsolete library
+template mapWith*(buff, mask: typed; action: untyped): expr =
     var
-        n = data.len
+        result = newSeq[type(items(buff))](buff.len)
+        n = mask.len
         i = 0
+        j = 0
 
-    while true:
-        yield data[i]
-        if i == <n: i = 0 else: inc(i)
+    for val in items(buff):
+        result[i] = action(val, mask[j])
+        inc(i)
+        if j == <n: j = 0 else: inc(j) 
+    result
 
-iterator citems1*(data: binBuffer): byte {.closure.} = 
+# in-place operation
+template applyWith*(buff, mask: typed, action: untyped): stmt =
     var
-        n = data.len
-        i = 0
+        n = mask.len
+        j = 0
 
-    while true:
-        yield data[i]
-        if i == <n: i = 0 else: inc(i)
-
-
-# need several variants. How to merge into generics without any system.xor conflict?
-proc `xor`*[T](buff: seq[T], mask: openArray[T]): seq[T] = 
-    var c = citems
-    result = buff.mapIt(it xor c(mask))
-
-proc `xor`*[T](buff: binBuffer, mask: openArray[T]): seq[T] = 
-    var c = citems
-    result = buff.mapIt(it xor c(mask))
-
-proc `xor`*(buff: binBuffer, mask: binBuffer): seq[byte] = 
-    var c = citems1
-    result = buff.mapIt(it xor c(mask))
-
-proc `xor`*[T](buff: seq[T], mask: binBuffer): seq[T] =
-    var c = citems1
-    result = buff.mapIt(it xor c(mask))
+    for val in mitems(buff):
+        val = action(val, mask[j])
+        if j == <n: j = 0 else: inc(j) 
 
 
-proc copy*(dst: binBuffer; src: binBuffer) = 
+proc copy*(dst: binBuffer; src: binBuffer) =
     var n = (src.len).clamp(0, dst.len)
     copyMem(addr dst.data[dst.view.a], addr src.data[src.view.a], n)
 
@@ -138,7 +126,7 @@ proc loadHigh*[T: SomeUnsignedInt](buff: binBuffer, value: var T, offset: int = 
     ## Note: the routine will test if the offset position allows for the full T value to be read
     ## (i.e. there are enough bytes left to complete T size)
 
-    var n = buff.view.a + offset  
+    var n = buff.view.a + offset
 
     if (buff.view.b + 1 ) >= (n + sizeof(value)):
         result = true
@@ -163,15 +151,15 @@ proc loadHigh*[T: SomeUnsignedInt](buff: binBuffer, value: var T, offset: int = 
 
 
 proc storeHigh*[T: SomeUnsignedInt](buff: binBuffer, value: T, offset: int = 0): bool =
-  
-    var n = buff.view.a + offset  
+
+    var n = buff.view.a + offset
 
     if (buff.view.b + 1 ) >= (n + sizeof(value)):
         result = true
 
         var o: pointer = addr buff.data[buff.view.a + offset]
         var i: pointer = unsafeAddr value
-        
+
         case sizeof(value)
         of 1:
           buff.data[0] = char(value.byte)
