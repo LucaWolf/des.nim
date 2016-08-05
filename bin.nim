@@ -79,6 +79,43 @@ proc `[]`*(buff: binBuffer, s: Slice[int]): binBuffer =
     if result.view.a > result.view.b:
         swap (result.view.a, result.view.b)
 
+#-----------------------
+proc testBit*(buff: binBuffer, idx: int): bool = 
+    if idx > (buff.len * 8 - 1):
+        result = false
+    else:
+        var mask = 1 shl (7 - idx and 7)
+        result = (buff[idx div 8] and mask.byte) != 0
+
+proc testBit*(buff: openArray[byte], idx: int): bool =
+    if idx > (buff.len * 8 - 1):
+        result = false
+    else:
+        var mask = 1 shl (7 - idx and 7)
+        result = (buff[idx div 8] and mask.byte) != 0
+#---
+proc setBit*(buff: binBuffer, idx: int) =
+    if idx <= (buff.len * 8 - 1):
+        var mask = 1 shl (7 - idx and 7)
+        buff[idx div 8] = buff[idx div 8] or mask.byte
+
+proc setBit*(buff: var openArray[byte], idx: int) =
+    if idx <= (buff.len * 8 - 1):
+        var mask = 1 shl (7 - idx and 7)
+        buff[idx div 8] = buff[idx div 8] or mask.byte
+#---
+proc resetBit*(buff: binBuffer, idx: int) =
+    if idx <= (buff.len * 8 - 1):
+        var mask = 1 shl (7 - idx and 7)
+        buff[idx div 8] = buff[idx div 8] and not(mask.byte)
+
+proc resetBit*(buff: var openArray[byte], idx: int) =
+    if idx <= (buff.len * 8 - 1):
+        var mask = 1 shl (7 - idx and 7)
+        buff[idx div 8] = buff[idx div 8] and not(mask.byte)
+
+
+#-----------------------
 iterator items*(buff: binBuffer): byte =
   for n in buff.view:
     yield buff[n]
@@ -87,7 +124,7 @@ iterator mitems*(buff: binBuffer): var byte =
   for n in buff.view:
     yield buff[n]
 
-# # new sequence returned; mapIt name conflicts with the obsolete library
+#-----------------------
 template mapWith*(buff, mask: typed; action: untyped): expr =
     var
         result = newSeq[type(items(buff))](buff.len)
@@ -111,7 +148,7 @@ template applyWith*(buff, mask: typed, action: untyped): stmt =
         val = action(val, mask[j])
         if j == <n: j = 0 else: inc(j) 
 
-
+#-----------------------
 proc copy*(dst: binBuffer; src: binBuffer) =
     var n = (src.len).clamp(0, dst.len)
     copyMem(addr dst.data[dst.view.a], addr src.data[src.view.a], n)
