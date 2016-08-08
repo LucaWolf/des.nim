@@ -109,7 +109,7 @@ proc setIV*[T: desCipher|des3Cipher](cipher: T, initVector: uint64) =
 
 
 #---------
-proc encrypt*[T: desCipher|des3Cipher](cipher: T; src, dst: openArray[byte]; mode: blockMode = modeCBC) =
+proc encrypt*[T: desCipher|des3Cipher](cipher: T; src, dst: binBuffer; mode: blockMode = modeCBC) =
     ## Encrypts the *src* input data in the *mode* chaining mode: currently only ECB and CBC
     ## are supported. The input is only processed for `n` bytes as multiple of *desBlockSize*. 
     ## The rest is ignored but you could use the *lastBlock* to hadle the input remainder.
@@ -122,31 +122,41 @@ proc encrypt*[T: desCipher|des3Cipher](cipher: T; src, dst: openArray[byte]; mod
     ##      var dataLast = dataClear.lastBlock(padISO7816, true)
     ##      if dataLast != nil:
     ##          des.encrypt(dataLast, lastEnc, modeECB)
-    
     var
-        refSrc = src.toBinBuffer()
-        refDst = dst.toBinBuffer()
-        
+        refSrc = src
+        refDst = dst
+
     if refDst.len < (refSrc.len div desBlockSize) * desBlockSize:
         raise newException(RangeError, "Output too short")
     
     # this excludes the last incomplete chunk if any
     while refSrc.len >= desBlockSize:
         cryptBlock(cipher, refSrc[0 .. <desBlockSize], refDst[0 .. <desBlockSize], mode, opEncrypt)
-        # !!!STRANGE!!! [desBlockSize .. ^1] => why has this stopped working after introducing generics?
         refSrc = refSrc[desBlockSize .. <refSrc.len]
         refDst = refDst[desBlockSize .. <refDst.len]
 
-#---------
-proc decrypt*[T: desCipher|des3Cipher](cipher: T; src, dst: openArray[byte], mode: blockMode = modeCBC) =
-    ## Decrypts the input data in the *mode* chaining mode: currently only ECB and CBC
-    ## are supported. The *src* input must have the length as multiple of *desBlockSize* bytes
-    ## The *dst* output sequence must have at least the same length as the input.
-    
+proc encrypt*[T: desCipher|des3Cipher](cipher: T; src, dst: openArray[byte]; mode: blockMode = modeCBC) =    
     var
         refSrc = src.toBinBuffer()
         refDst = dst.toBinBuffer()
-        
+
+    encrypt(cipher, refSrc, refDst, mode)
+   
+proc encrypt*[T: desCipher|des3Cipher](cipher: T; src: openArray[byte]; dst: binBuffer; mode: blockMode = modeCBC) =    
+    var
+        refSrc = src.toBinBuffer()
+
+    encrypt(cipher, refSrc, dst, mode)
+
+#---------
+proc decrypt*[T: desCipher|des3Cipher](cipher: T; src, dst: binBuffer, mode: blockMode = modeCBC) =
+    ## Decrypts the input data in the *mode* chaining mode: currently only ECB and CBC
+    ## are supported. The *src* input must have the length as multiple of *desBlockSize* bytes
+    ## The *dst* output sequence must have at least the same length as the input.
+    var
+        refSrc = src
+        refDst = dst
+
     if (src.len mod 8) != 0:
         raise newException(RangeError, "Input incomplete block")
     if refDst.len < refSrc.len:
@@ -155,7 +165,18 @@ proc decrypt*[T: desCipher|des3Cipher](cipher: T; src, dst: openArray[byte], mod
     # this excludes the last incomplete chunk if any
     while refSrc.len >= desBlockSize:
         cryptBlock(cipher, refSrc[0 .. <desBlockSize], refDst[0 .. <desBlockSize], mode, opDecrypt)
-        # !!!STRANGE!!! [desBlockSize .. ^1] => why has this stopped working after introducing generics?
         refSrc = refSrc[desBlockSize .. <refSrc.len]
         refDst = refDst[desBlockSize .. <refDst.len]
-    
+
+proc decrypt*[T: desCipher|des3Cipher](cipher: T; src, dst: openArray[byte]; mode: blockMode = modeCBC) =    
+    var
+        refSrc = src.toBinBuffer()
+        refDst = dst.toBinBuffer()
+
+    decrypt(cipher, refSrc, refDst, mode)
+
+proc decrypt*[T: desCipher|des3Cipher](cipher: T; src: openArray[byte]; dst: binBuffer; mode: blockMode = modeCBC) =    
+    var
+        refSrc = src.toBinBuffer()
+
+    decrypt(cipher, refSrc, dst, mode)

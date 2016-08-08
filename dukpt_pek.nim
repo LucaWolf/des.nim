@@ -2,24 +2,26 @@ import strutils, sequtils
 import des_api
 import dukpt_const
 
-proc pekBlackBox(currKey: var seq[byte], data: seq[byte]) =
+proc pekBlackBox(currKey: var seq[byte], currKSN: seq[byte]) =
 
     var
-        keyLeft = currKey[0 .. <desBlockSize]
+        keyLeft = currKey[0 .. <desBlockSize] # copies
         keyRight = currKey[desBlockSize .. ^1]
-        nkeyRight = newSeq[byte](desBlockSize)
-        nkeyLeft = newSeq[byte](desBlockSize)
-
+        nextKeyLeft = currKey.toBinBuffer()[0 .. <desBlockSize] # direct output
+        nextKeyRight = currKey.toBinBuffer()[desBlockSize .. ^1]
+        cipher: desCipher
+        msg: seq[byte]
+    
     # ===============================================
     # LSB of new key is:
     # - XOR right key with current KSN iteration,
     # - encrypt with left key
     # - XOR with right key
     # ===============================================
-    var msg = mapWith(keyRight, data,`xor`)
-    var cipher = newDesCipher(keyLeft)
-    cipher.encrypt(msg, nkeyRight)
-    nkeyRight.applyWith(keyRight, `xor`)
+    msg = mapWith(keyRight, currKSN,`xor`)
+    cipher = newDesCipher(keyLeft)
+    cipher.encrypt(msg, nextKeyRight)
+    nextKeyRight.applyWith(keyRight, `xor`)
 
     # ===============================================
     # MSB of new key is as above but the input key is
@@ -27,12 +29,11 @@ proc pekBlackBox(currKey: var seq[byte], data: seq[byte]) =
     # ===============================================
     keyLeft.applyWith(ipekMask,`xor`)
     keyRight.applyWith(ipekMask,`xor`)
-    msg = mapWith(keyRight, data,`xor`)
-    cipher = newDesCipher(keyLeft)
-    cipher.encrypt(msg, nkeyLeft)
-    nkeyLeft.applyWith(keyRight, `xor`)
 
-    currKey =  concat (nkeyLeft, nkeyRight) 
+    msg = mapWith(keyRight, currKSN,`xor`)
+    cipher = newDesCipher(keyLeft)
+    cipher.encrypt(msg, nextKeyLeft)
+    nextKeyLeft.applyWith(keyRight, `xor`)
 
 
 proc createPEK*(ipek, ksn: seq[byte]): seq[byte] =
@@ -58,3 +59,4 @@ proc createPEK*(ipek, ksn: seq[byte]): seq[byte] =
         if testBit(ksn_lsb, n):
             setBit(ksn_base_lsb, n)
             result.pekBlackBox(ksn_base_lsb)
+            

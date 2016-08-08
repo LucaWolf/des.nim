@@ -117,11 +117,13 @@ proc resetBit*(buff: var openArray[byte], idx: int) =
 
 #-----------------------
 iterator items*(buff: binBuffer): byte =
-  for n in buff.view:
+  let noItems = (buff.view.b - buff.view.a)
+  for n in 0..noItems:
     yield buff[n]
 
 iterator mitems*(buff: binBuffer): var byte =
-  for n in buff.view:
+  let noItems = (buff.view.b - buff.view.a)
+  for n in 0..noItems:
     yield buff[n]
 
 #-----------------------
