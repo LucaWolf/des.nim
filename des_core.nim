@@ -144,19 +144,15 @@ proc desfunc(data: var openarray[uint32], key: var subkeys) =
 #--------- DES and DES3 objects -----
 type
     desCipherObj = object
-        keyEnc, keyDec: subkeys
-        iv: array[2, uint32]
-    desCipher* = ref desCipherObj 
-        
-    des3CipherObj = object
         keyEnc: array[3, subkeys]
         keyDec: array[3, subkeys]
         iv: array[2, uint32]
-    des3Cipher* = ref des3CipherObj
+        restricted: bool # indicates use of 1st key only -- single DES mode
+    desCipher* = ref desCipherObj
 
 
 #---------
-proc cryptBlock[T: desCipher|des3Cipher](cipher: T, src, dst: binBuffer, mode: blockMode, operation: blockOp) =
+proc cryptBlock(cipher: desCipher, src, dst: binBuffer, mode: blockMode, operation: blockOp) =
     if (src.len != desBlockSize) or (dst.len != desBlockSize):
         raise newException(RangeError, "Not block")
     var
@@ -177,17 +173,13 @@ proc cryptBlock[T: desCipher|des3Cipher](cipher: T, src, dst: binBuffer, mode: b
             tmp[0] = work[0]; tmp[1] = work[1]
     
     if operation == opEncrypt:
-        when T is desCipher:
-            desfunc(work, cipher.keyEnc)
-        else:
-            desfunc(work, cipher.keyEnc[0]);
+        desfunc(work, cipher.keyEnc[0])
+        if cipher.restricted == false:
             desfunc(work, cipher.keyEnc[1]); # key created as opDecrypt
             desfunc(work, cipher.keyEnc[2]);
     else:
-        when T is desCipher:
-            desfunc(work, cipher.keyDec)
-        else:
-            desfunc(work, cipher.keyDec[0]);
+        desfunc(work, cipher.keyDec[0])
+        if cipher.restricted == false:
             desfunc(work, cipher.keyDec[1]); # key created as opEncrypt
             desfunc(work, cipher.keyDec[2]);
 

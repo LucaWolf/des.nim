@@ -10,3 +10,8 @@ const dataMask* = seqOf[int,byte]([0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x0
 
 const counter_bits* = 21
 
+type
+    keyVariant* = enum
+        kvData, kvDataSimple, kvPin, kvMacReq, kvMacReply
+    
+

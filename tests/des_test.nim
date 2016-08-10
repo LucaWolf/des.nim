@@ -41,7 +41,7 @@ when isMainModule:
     #---------------    
     echo "=== DES2 encrypt ==="
     var
-        doubleDes = newDes3Cipher(testKey16)
+        doubleDes = newDesCipher(testKey16)
         dataEnc2 = newSeq[byte]((dataClear.len div desBlockSize) * desBlockSize)
     
     doubleDes.encrypt(dataClear, dataEnc2, mode)
@@ -62,7 +62,7 @@ when isMainModule:
     #---------------    
     echo "=== DES3 encrypt ==="
     var
-        tripleDes = newDes3Cipher(testKey24)
+        tripleDes = newDesCipher(testKey24)
         dataEnc3 = newSeq[byte]((dataClear.len div desBlockSize) * desBlockSize)
     
     tripleDes.encrypt(dataClear, dataEnc3, mode)
