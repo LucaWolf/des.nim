@@ -13,5 +13,7 @@ const counter_bits* = 21
 type
     keyVariant* = enum
         kvData, kvDataSimple, kvPin, kvMacReq, kvMacReply
+    dukptKey* = array[16, byte]
+    dukptKsn* = array[10, byte]
     
 

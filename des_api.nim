@@ -36,22 +36,23 @@ proc lastBlock*(src: var seq[byte], pad: blockPadding, extraBlock: bool = false)
         discard
     
 #---------
-proc newDesCipher*(initialKey: seq[byte]): desCipher = 
+proc newDesCipher*(initialKey: openArray[byte]): desCipher = 
     ## Creates a cipher for triple des operations.
     ## The length of *initialKey* must be exact one, double or triple of desKey
     var
-        k1, k2, k3: seq[byte]    
+        k1, k2, k3: desKey
+        key = initialKey.toBinBuffer()
     
     case initialKey.len
     of desBlockSize:
-        k1 = initialKey[0 .. <desBlockSize]
+        k1.applyWith( key[0 .. <desBlockSize], `or`)
     of 2 * desBlockSize:
-        k1 = initialKey[0 .. <desBlockSize]
-        k2 = initialKey[desBlockSize .. <(2*desBlockSize)]
+        k1 = key[0 .. <desBlockSize]
+        k2 = key[desBlockSize .. <(2*desBlockSize)]
     of 3 * desBlockSize:
-        k1 = initialKey[0 .. <desBlockSize]
-        k2 = initialKey[desBlockSize .. <(2*desBlockSize)]
-        k3 = initialKey[(2*desBlockSize) .. <(3*desBlockSize)]
+        k1 = key[0 .. <desBlockSize]
+        k2 = key[desBlockSize .. <(2*desBlockSize)]
+        k3 = key[(2*desBlockSize) .. <(3*desBlockSize)]
     else:
         raise newException(RangeError, "Key not desBlockSize multiple:" & $initialKey.len)
     

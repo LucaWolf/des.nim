@@ -3,10 +3,10 @@ import des_api
 import dukpt_const
 import dukpt_pek
 
-proc createIPEK*(bdk, ksn: seq[byte]): seq[byte] =
+proc createIPEK*(bdk, ksn: openArray[byte]): dukptKey =
     var
-        ipek_l = newSeq[byte](desBlockSize)
-        ipek_r = newSeq[byte](desBlockSize)
+        ipek_l: array[desBlockSize, byte]
+        ipek_r: array[desBlockSize, byte]
         ksn_base = mapWith(ksn, ksnCounterMask, `and`)
         ksn_msb = ksn_base[0..<desBlockSize]
 
@@ -20,4 +20,10 @@ proc createIPEK*(bdk, ksn: seq[byte]): seq[byte] =
     tripleDes = newDesCipher(keyMasked)
     tripleDes.encrypt(ksn_msb, ipek_r, modeCBC)
 
-    result = concat(ipek_l, ipek_r)
+    var i = 0
+    for val in items(ipek_l):
+        result[i] = val
+        inc(i)
+    for val in items(ipek_r):
+        result[i] = val
+        inc(i)
