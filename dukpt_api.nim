@@ -1,8 +1,97 @@
 import strutils, sequtils
-import des_api, dukpt_const, dukpt_ipek, dukpt_pek
-export des_api, dukpt_const, dukpt_ipek, dukpt_pek
+import des_api, dukpt_const
+export dukpt_const
 
-# TODO unify into a dukpt API
+#----
+proc pekBlackBox(currKey: var dukptKey, currKSN: dukptKsn) =
+
+    var
+        keyLeft, keyRight: desKey # copies
+        msg, ksnLSB: desKey
+        nextKeyLeft = currKey.toBinBuffer()[0..<desBlockSize] # direct output
+        nextKeyRight = currKey.toBinBuffer()[desBlockSize .. ^1]
+        cipher: desCipher
+        
+    copyMem(addr keyLeft[0],  addr currKey[0],            desBlockSize)
+    copyMem(addr keyRight[0], addr currKey[desBlockSize], desBlockSize)
+    copyMem(addr ksnLSB[0], unsafeaddr currKSN[2], desBlockSize)
+
+    # ===============================================
+    # LSB of new key is:
+    # - XOR right key with current KSN iteration,
+    # - encrypt with left key
+    # - XOR with right key
+    # ===============================================
+    msg = keyRight
+    msg.applyWith(ksnLSB,`xor`)
+    cipher = newDesCipher(keyLeft)
+    cipher.encrypt(msg, nextKeyRight)
+    nextKeyRight.applyWith(keyRight, `xor`)
+
+    # ===============================================
+    # MSB of new key is as above but the input key is
+    # C0C0C0C000000000 masked
+    # ===============================================
+    keyLeft.applyWith(ipekMask,`xor`)
+    keyRight.applyWith(ipekMask,`xor`)
+
+    msg = keyRight
+    msg.applyWith(ksnLSB,`xor`)
+    cipher = newDesCipher(keyLeft)
+    cipher.encrypt(msg, nextKeyLeft)
+    nextKeyLeft.applyWith(keyRight, `xor`)
+
+#----
+proc createPEK*(ipek, ksn: openArray[byte]): dukptKey =
+    var
+        ksnAccumulator: dukptKsn
+
+    copyMem(addr ksnAccumulator[0], unsafeAddr ksn[0], ksnSize)
+    ksnAccumulator.applyWith(ksnCounterMask, `and`)
+
+    copyMem(addr result[0], unsafeAddr ipek[0], 2*desBlockSize)
+
+    # ===============================================
+    # k(n+1) derived from k(n) and ksn(n)
+    # where ksn(n) is ksn(n-1) with next MSB (in bits[21->0]) set
+    # ksn(0) is zero-ed counter KSN
+    # Ex: KSN = 9876543210E0000B, B = 1011 = (1000 | 0010 | 0001)
+    #  ksn(0) = 9876543210E00000,
+    #  ksn(1) = 9876543210E00008 (8 = 1000)
+    #  ksn(2) = 9876543210E0000A (A = 8|0010),
+    #  ksn(3) = 9876543210E0000B (B = A|0001),
+    # ===============================================
+
+    for n in (8*ksnSize - counter_bits) .. <(8*ksnSize):
+        if testBit(ksn, n):
+            setBit(ksnAccumulator, n)
+            result.pekBlackBox(ksnAccumulator)
+
+
+# -------------
+proc createIPEK(bdk, ksn: openArray[byte]): dukptKey =
+    var
+        ipek_l: array[desBlockSize, byte]
+        ipek_r: array[desBlockSize, byte]
+        ksnAccumulator: dukptKsn
+
+    copyMem(addr ksnAccumulator[0], unsafeAddr ksn[0], ksnSize)
+    ksnAccumulator.applyWith(ksnCounterMask, `and`)
+    
+    # left register IPEK
+    var tripleDes = newDesCipher(bdk)
+    tripleDes.encrypt(ksnAccumulator, ipek_l, modeCBC)
+
+    # prepare the key for the right register IPEK
+    var keyMasked = mapWith(bdk, ipekMask, `xor`)
+
+    tripleDes = newDesCipher(keyMasked)
+    tripleDes.encrypt(ksnAccumulator, ipek_r, modeCBC)
+
+    copyMem(addr result[0],            addr ipek_l[0], desBlockSize)
+    copyMem(addr result[desBlockSize], addr ipek_r[0], desBlockSize)
+
+#--------------
 
 type
     dukptCipherObj = object
@@ -14,26 +103,26 @@ type
 
     dukptCipher* = ref dukptCipherObj 
     
-# TODO design: hide all ops under dukptCipher or export the internal crypter object
-# and use it directly?
+# -- test only
+proc `$`*(cipher: dukptCipher): string = 
 
+    result = "PEK = " & cipher.pek.toHex(false)
+
+#---
 proc restrict*(cipher: dukptCipher, useSingleDes: bool = true) =
-    cipher.crypter.restrict()
+    ## Enforces single DES key operations
+    ## Most useful for particular MAC and other encryption types
+    cipher.crypter.restrict(true)
 
+#---
 proc newDukptCipher*(bdk, ksn: openArray[byte]): dukptCipher =
 
     if bdk.len != 2 * desBlockSize:
         raise newException(RangeError, "BDK not desBlockSize multiple:" & $bdk.len)
 
-    if ksn.len != 10:
+    if ksn.len != ksnSize:
         raise newException(RangeError, "KSN wrong size:" & $ksn.len)
-
-
+        
     new(result)
     
     result.pek = createPEK(createIPEK(bdk, ksn), ksn)
-
-    c.isSetup = true
-    c.useSingleDes = false
-
-    return c, nil

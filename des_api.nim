@@ -3,37 +3,38 @@ export bin, des_const, des_type
 
 include des_core
     
-proc lastBlock*(src: var seq[byte], pad: blockPadding, extraBlock: bool = false): seq[byte] =
-    ## Creates a full block containing the paddded last of input data if *src* in deemed too short. 
+# send src as var to make sure a pointer is passed and not a full copy
+proc lastBlock*(src: var openArray[byte], pad: blockPadding, extraBlock: bool, dst: var desBlock): bool =
+    ## Formats the *dst* as the paddded last chunk of *src* if deemed too short. 
     ## The *extraBlock* could enforce a full desBlockSize padding but only when the input
     ## is already multiple of desBlocksize bytes.
     ##
-    ## A blank sequence is returned if padding is not required
+    ## A blank sequence and false is returned if padding is not required
 
-    var padLen = desBlockSize - src.len mod desBlockSize
+    var n = src.len and <desBlockSize
+    var padLen = desBlockSize - n
 
     if padLen == desBlockSize and extraBlock == false:
         padLen = 0
 
     if padLen != 0:
-        result = newSeq[byte](desBlockSize) # zero filled by constructor
         if padLen != 8:
-            # note slice of src would be nil and bin library is not so resilient..hence the validation
-            copy(result.toBinBuffer(), src[^(desBlockSize - padLen)..^1].toBinBuffer()) # src cannot be openarray
+            copyMem(addr dst[0], addr src[len(src) - n], desBlockSize)
         
-        # fill in the rest of bytes to desired scheme
+        result = true
+        # fill in the rest of bytes to the desired scheme
         case pad
             of padPKCS5:
-                for i in desBlockSize - padLen..<desBlockSize:
-                    result[i] = padLen.byte
+                for i in (desBlockSize - padLen) .. <desBlockSize:
+                    dst[i] = padLen.byte
             of padX923:
-                result[^1] = padLen.byte
+                dst[^1] = padLen.byte
             of padISO7816:
-                result[^padLen] = 0x80'u8
+                dst[^padLen] = 0x80'u8
             else:
                 discard # leave zeros as if padZero
     else:
-        discard
+        result = false
     
 #---------
 proc newDesCipher*(initialKey: openArray[byte]): desCipher = 
@@ -41,18 +42,17 @@ proc newDesCipher*(initialKey: openArray[byte]): desCipher =
     ## The length of *initialKey* must be exact one, double or triple of desKey
     var
         k1, k2, k3: desKey
-        key = initialKey.toBinBuffer()
     
     case initialKey.len
     of desBlockSize:
-        k1.applyWith( key[0 .. <desBlockSize], `or`)
+        copyMem(addr k1[0], unsafeAddr initialKey[0], desBlockSize)
     of 2 * desBlockSize:
-        k1 = key[0 .. <desBlockSize]
-        k2 = key[desBlockSize .. <(2*desBlockSize)]
+        copyMem(addr k1[0], unsafeAddr initialKey[0], desBlockSize)
+        copyMem(addr k2[0], unsafeAddr initialKey[desBlockSize], desBlockSize)
     of 3 * desBlockSize:
-        k1 = key[0 .. <desBlockSize]
-        k2 = key[desBlockSize .. <(2*desBlockSize)]
-        k3 = key[(2*desBlockSize) .. <(3*desBlockSize)]
+        copyMem(addr k1[0], unsafeAddr initialKey[0], desBlockSize)
+        copyMem(addr k2[0], unsafeAddr initialKey[desBlockSize], desBlockSize)
+        copyMem(addr k3[0], unsafeAddr initialKey[2*desBlockSize], desBlockSize)
     else:
         raise newException(RangeError, "Key not desBlockSize multiple:" & $initialKey.len)
     
@@ -60,17 +60,17 @@ proc newDesCipher*(initialKey: openArray[byte]): desCipher =
     result.iv[0] = 0'u32
     result.iv[1] = 0'u32
     result.restricted = true
-    
+
     # enc keys
     initKeys(k1, opEncrypt, result.keyEnc[0])
     initKeys(k1, opDecrypt, result.keyDec[2]) # dec keys are used in reversed order
     
-    if k2.len > 0:
+    if initialKey.len > desBlockSize:
         initKeys(k2, opDecrypt, result.keyEnc[1])
         initKeys(k2, opEncrypt, result.keyDec[1])
         result.restricted = false
 
-    if k3.len > 0:
+    if initialKey.len > 2*desBlockSize:
         initKeys(k3, opEncrypt, result.keyEnc[2])
         initKeys(k3, opDecrypt, result.keyDec[0])
     else: # this also covers single DES decryption

@@ -8,12 +8,14 @@ when isMainModule:
         testKey16 = fromHex("0x0123456789ABCDEFFEDCBA9876543210")
         testKey24 = fromHex("0x0123456789ABCDEFFEDCBA9876543210_8899AABBCCDDEEFF")
         dataClear = fromHex("1020-3040-5060-7080_A0:B0:C0:D0:E0:F0:77:88_FFFF")
+        dataLast: desBlock
         
         lastEnc = newSeq[byte](desBlockSize) # holder for last encrypted block
         
         mode = modeCBC
         padding = padPKCS5
         enforceFullBlockPadding = false
+        hasPadding = dataClear.lastBlock(padding, enforceFullBlockPadding, dataLast)
 
     echo "Clear data is:  ", toHex(dataClear, false)
     
@@ -25,8 +27,7 @@ when isMainModule:
     
     singleDes.encrypt(dataClear, dataEnc, mode)
 
-    var dataLast = dataClear.lastBlock(padding, enforceFullBlockPadding)
-    if dataLast != nil:
+    if hasPadding:
         singleDes.encrypt(dataLast, lastEnc, mode)
         dataEnc = dataEnc.concat(lastEnc)
     
@@ -46,9 +47,8 @@ when isMainModule:
     
     doubleDes.encrypt(dataClear, dataEnc2, mode)
     
-    var dataLast2 = dataClear.lastBlock(padding, enforceFullBlockPadding)
-    if dataLast2 != nil:
-        doubleDes.encrypt(dataLast2, lastEnc, mode)
+    if hasPadding:
+        doubleDes.encrypt(dataLast, lastEnc, mode)
         dataEnc2 = dataEnc2.concat(lastEnc)
     
     echo "Enc2 data is:   ", $toHex(dataEnc2, false)
@@ -67,9 +67,8 @@ when isMainModule:
     
     tripleDes.encrypt(dataClear, dataEnc3, mode)
     
-    var dataLast3 = dataClear.lastBlock(padding, enforceFullBlockPadding)
-    if dataLast3 != nil:
-        tripleDes.encrypt(dataLast3, lastEnc, mode)
+    if hasPadding:
+        tripleDes.encrypt(dataLast, lastEnc, mode)
         dataEnc3 = dataEnc3.concat(lastEnc)
     
     echo "Enc3 data is:   ", $toHex(dataEnc3, false)

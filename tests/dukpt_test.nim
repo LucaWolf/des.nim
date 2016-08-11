@@ -1,19 +1,14 @@
 import strutils, sequtils
 import ../des_api
-# TODO unify into a dukpt API
-import ../dukpt_const
-import ../dukpt_ipek
-import ../dukpt_pek
-
+import ../dukpt_api
 
 when isMainModule:
+
     var
         testBDK = fromHex("C1D0F8FB4958670DBA40AB1F3752EF0D")
         testKSN = fromHex("FFFF9876543210E10004")
+        dukpt: dukptCipher
 
-    var ipek = createIPEK(testBDK, testKSN)
-    echo "iPEK is: ", toHex(ipek, true)
-
-    var pek = createPEK(ipek, testKSN)
-    echo "PEK is: ", toHex(pek, true)
+    dukpt = newDukptCipher(testBDK, testKSN)
+    echo $dukpt
 
