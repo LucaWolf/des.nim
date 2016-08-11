@@ -8,8 +8,8 @@ import ../dukpt_pek
 
 when isMainModule:
     var
-        testBDK = fromHex("0x0123456789abcdeffedcba9876543210")
-        testKSN = fromHex("0xFFFF9876543210E00047")
+        testBDK = fromHex("C1D0F8FB4958670DBA40AB1F3752EF0D")
+        testKSN = fromHex("FFFF9876543210E10004")
 
     var ipek = createIPEK(testBDK, testKSN)
     echo "iPEK is: ", toHex(ipek, true)
