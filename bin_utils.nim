@@ -1,7 +1,7 @@
 import strutils, sequtils
 
 #-----------------------
-template seqOf*[T,N] (buff: openarray[T]): expr =
+template seqOf*[T,N] (buff: openarray[T]): seq[N] =
     ## Script to help with declaration of new sequences of type N based on an array of 
     ## values of type T. Internally, a conversion call *proc (x: T): N = x.N*
     ## is attempted, so the conversion function would better exists already.

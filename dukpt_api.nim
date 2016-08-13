@@ -97,22 +97,39 @@ type
     dukptCipherObj = object
         pek: dukptKey
         # TODO future keys array to discard pek
-        key: dukptKey # current key for the desired operation (speed)
-        crypter: desCipher
+        crypter*: desCipher # TODO make it public and implement MAC, encrypt, decrypt operations
         ksn: dukptKsn # current KSN; future increment API
 
     dukptCipher* = ref dukptCipherObj 
     
-# -- test only
-proc `$`*(cipher: dukptCipher): string = 
-
-    result = "PEK = " & cipher.pek.toHex(false)
-
 #---
 proc restrict*(cipher: dukptCipher, useSingleDes: bool = true) =
     ## Enforces single DES key operations
     ## Most useful for particular MAC and other encryption types
     cipher.crypter.restrict(true)
+
+#---
+proc selectKey(cipher: var dukptCipher, variant: keyVariant) =
+    var maskKey: dukptKey
+
+    copyMem(addr maskKey[0], addr cipher.pek[0], maskKey.len)
+
+    case variant
+    of kvData:
+        maskKey.applyWith(dataMask, `xor`)
+        var c = newDesCipher(maskKey)
+        c.encrypt(maskKey, maskKey, modeECB)
+    of kvDataSimple:
+        maskKey.applyWith(dataMask, `xor`)
+    of kvPin:
+        maskKey.applyWith(pinMask, `xor`)
+    of kvMacReq:
+        maskKey.applyWith(mReqMask, `xor`)
+    of kvMacReply:
+        maskKey.applyWith(mRspMask, `xor`)
+
+    cipher.crypter = newDesCipher(maskKey)
+
 
 #---
 proc newDukptCipher*(bdk, ksn: openArray[byte]): dukptCipher =
@@ -126,3 +143,11 @@ proc newDukptCipher*(bdk, ksn: openArray[byte]): dukptCipher =
     new(result)
     
     result.pek = createPEK(createIPEK(bdk, ksn), ksn)
+    result.selectKey(kvData)
+    
+#---
+template encrypt*(cipher: dukptCipher; src, dst: typed; mode: blockMode = modeCBC) =
+    cipher.crypter.encrypt(src, dst, mode)
+
+template decrypt*(cipher: dukptCipher; src, dst: typed; mode: blockMode = modeCBC) =
+    cipher.crypter.decrypt(src, dst, mode)

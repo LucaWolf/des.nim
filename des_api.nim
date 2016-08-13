@@ -42,7 +42,7 @@ proc newDesCipher*(initialKey: openArray[byte]): desCipher =
     ## The length of *initialKey* must be exact one, double or triple of desKey
     var
         k1, k2, k3: desKey
-    
+
     case initialKey.len
     of desBlockSize:
         copyMem(addr k1[0], unsafeAddr initialKey[0], desBlockSize)
@@ -147,6 +147,12 @@ proc encrypt*(cipher: desCipher; src: openArray[byte]; dst: binBuffer; mode: blo
 
     encrypt(cipher, refSrc, dst, mode)
 
+proc encrypt*(cipher: desCipher; src: binBuffer; dst: openArray[byte]; mode: blockMode = modeCBC) =    
+    var
+        refDst = dst.toBinBuffer()
+
+    encrypt(cipher, src, refDst, mode)
+
 #---------
 proc decrypt*(cipher: desCipher; src, dst: binBuffer, mode: blockMode = modeCBC) =
     ## Decrypts the input data in the *mode* chaining mode: currently only ECB and CBC
@@ -164,6 +170,7 @@ proc decrypt*(cipher: desCipher; src, dst: binBuffer, mode: blockMode = modeCBC)
     # this excludes the last incomplete chunk if any
     while refSrc.len >= desBlockSize:
         cryptBlock(cipher, refSrc[0 .. <desBlockSize], refDst[0 .. <desBlockSize], mode, opDecrypt)
+        # TODO instead of allocating a new slice, perhaps implement a `view` shift?
         refSrc = refSrc[desBlockSize .. <refSrc.len]
         refDst = refDst[desBlockSize .. <refDst.len]
 
@@ -179,3 +186,9 @@ proc decrypt*(cipher: desCipher; src: openArray[byte]; dst: binBuffer; mode: blo
         refSrc = src.toBinBuffer()
 
     decrypt(cipher, refSrc, dst, mode)
+
+proc decrypt*(cipher: desCipher; src: binBuffer; dst: openArray[byte]; mode: blockMode = modeCBC) =    
+    var
+        refDst = dst.toBinBuffer()
+
+    decrypt(cipher, src, refDst, mode)

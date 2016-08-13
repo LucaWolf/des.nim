@@ -127,7 +127,7 @@ iterator mitems*(buff: binBuffer): var byte =
     yield buff[n]
 
 #-----------------------
-template mapWith*(buff, mask: typed; action: untyped): expr =
+template mapWith*(buff, mask: typed; action: untyped): untyped =
     var
         result = newSeq[type(items(buff))](buff.len)
         n = mask.len
@@ -141,7 +141,7 @@ template mapWith*(buff, mask: typed; action: untyped): expr =
     result
 
 # in-place operation
-template applyWith*(buff, mask: typed, action: untyped): stmt =
+template applyWith*(buff, mask: typed, action: untyped): typed =
     var
         n = mask.len
         j = 0
