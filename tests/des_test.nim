@@ -15,7 +15,7 @@ when isMainModule:
         mode = modeCBC
         padding = padPKCS5
         enforceFullBlockPadding = false
-        hasPadding = dataClear.lastBlock(padding, enforceFullBlockPadding, dataLast)
+        hasPadding = dataClear.lastBlock(dataLast, padding, enforceFullBlockPadding)
 
     echo "Clear data is:  ", toHex(dataClear, false)
     

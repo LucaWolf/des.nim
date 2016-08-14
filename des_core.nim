@@ -147,14 +147,19 @@ type
         keyEnc: array[3, subkeys]
         keyDec: array[3, subkeys]
         iv: array[2, uint32]
-        restricted: bool # indicates use of 1st key only -- single DES mode
+        restricted: bool # enforces using of 1st key only -- single DES mode
+        keyIsSingle: bool # tells if original key was single DES
     desCipher* = ref desCipherObj
 
 
 #---------
 proc cryptBlock(cipher: desCipher, src, dst: binBuffer, mode: blockMode, operation: blockOp) =
-    if (src.len != desBlockSize) or (dst.len != desBlockSize):
-        raise newException(RangeError, "Not block")
+    if (src.len != desBlockSize):
+        raise newException(RangeError, "Src Not block:" & $src.len)
+    if (dst.len != desBlockSize):
+        raise newException(RangeError, "Dst Not block:" & $dst.len)
+
+
     var
         work: array[2, uint32]
         tmp: array[2, uint32]

@@ -109,7 +109,7 @@ proc restrict*(cipher: dukptCipher, useSingleDes: bool = true) =
     cipher.crypter.restrict(true)
 
 #---
-proc selectKey(cipher: var dukptCipher, variant: keyVariant) =
+proc selectKey*(cipher: var dukptCipher, variant: keyVariant) =
     var maskKey: dukptKey
 
     copyMem(addr maskKey[0], addr cipher.pek[0], maskKey.len)
@@ -151,3 +151,15 @@ template encrypt*(cipher: dukptCipher; src, dst: typed; mode: blockMode = modeCB
 
 template decrypt*(cipher: dukptCipher; src, dst: typed; mode: blockMode = modeCBC) =
     cipher.crypter.decrypt(src, dst, mode)
+
+#---
+template mac*(cipher: dukptCipher; src, dst: typed; version: macVersion; pad: blockPadding; enforceFullBlockPadding: bool = false) =
+    cipher.crypter.mac(src, dst, version, pad, enforceFullBlockPadding)
+
+
+#---
+proc setIV*(cipher: dukptCipher, initVector: openArray[byte]) =
+    cipher.crypter.setIV(initVector)
+
+proc setIV*(cipher: dukptCipher, initVector: uint64)=
+    cipher.crypter.setIV(initVector)
