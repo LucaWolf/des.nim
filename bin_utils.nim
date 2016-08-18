@@ -1,17 +1,18 @@
 import strutils, sequtils
 
+#--- add here required converters
+converter i64ToU32*(x: int64): uint32 =
+    result = x.uint32
+converter iToU32U8(x: int): uint8 =
+    result = x.uint8
+#---
+
 #-----------------------
 template seqOf*[T,N] (buff: openarray[T]): seq[N] =
     ## Script to help with declaration of new sequences of type N based on an array of 
     ## values of type T. Internally, a conversion call *proc (x: T): N = x.N*
     ## is attempted, so the conversion function would better exists already.
     ## 
-    ## For example, the following call preserves only the LSB from each input when defining 
-    ## an aray of unsigned 8 bit integers:
-    ##
-    ##      data = seqOf[int,byte]([0x5C01, 0x0A] # is equivalent to 
-    ##      data: seq[byte] = @[0x01'ui8, 0x0A'ui8]
-    
     map[T, N](buff, proc (x: T): N = x.N)
 
 

@@ -3,10 +3,10 @@ import ../des_api
 
 
 var
-    data = seqOf[int,byte](@[0xAA, 1, 0x55, 3, 4, 5, 6, 7, 8, 9])
-    mask = seqOf[int,byte](@[9, 8, 7, 7])
-    mask_odd = seqOf[int,byte](@[0, 0x55])
-    lastChunk = newSeq[byte](8)
+    data = [0xAA.byte, 1, 0x55, 3, 0xF0, 5, 6, 7, 8, 9]
+    mask = [9.byte, 8, 7, 7]
+    mask_odd = [0.byte, 0x55]
+    lastChunk: array[8, byte]
     txt = "123456789"
     b1, b2: binBuffer
     dataMasked: seq[byte]
@@ -30,8 +30,8 @@ echo "Txt $1 has len=$2, slice b2 has len=$3" % [txt, $txt.len, $b2.len]
 b2[<b2.len] = ord('E')
 echo "Modified b2=", txt
 
-var byte_AA_bits = @[true, false, true, false, true, false, true, false]
-var byte_55_bits = @[false, true, false, true, false, true, false, true]
+var byte_AA_bits = [true, false, true, false, true, false, true, false]
+var byte_55_bits = [false, true, false, true, false, true, false, true]
 
 #test byte 0
 echo "B0 testing ", $data[0]
@@ -87,7 +87,7 @@ dataMasked = mapWith(data, mask, `or`)
 echo "dataMasked(or  seq / seq) = ", $dataMasked
 
 data.applyWith(mask_odd, `and`)
-echo "dataTrimm (and seq / seq) = ", $data
+echo "dataTrimm (and seq / seq) = ", repr data
 
 dataMasked = mapWith (data.toBinBuffer(), mask.toBinBuffer(), `xor`)
 echo "dataMasked(xor buff/buff) = ", $dataMasked
