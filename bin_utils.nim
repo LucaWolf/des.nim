@@ -3,7 +3,7 @@ import strutils, sequtils
 #--- add here required converters
 converter i64ToU32*(x: int64): uint32 =
     result = x.uint32
-converter iToU32U8(x: int): uint8 =
+converter iToU8(x: int): uint8 =
     result = x.uint8
 #---
 
