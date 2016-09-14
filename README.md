@@ -1,6 +1,8 @@
 des.nim
 =======
 
+[![Build Status](https://travis-ci.org/LucaWolf/des.nim.svg?branch=master)](https://travis-ci.org/LucaWolf/des.nim)
+
 About
 -----
 This is a Nim port of a C-based DES implementation. It implements single, double and triple DES operations with support for basic data padding. 
