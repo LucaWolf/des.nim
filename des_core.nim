@@ -27,11 +27,13 @@ proc initKeys(keyin: openArray[byte], edf: blockOp, keyout: var subkeys) =
         s,m,n: int
         kn: subkeys
         pc1m, pcr: array[56, byte]
+        mask: byte
     
     for j in 0..<pc1m.len:
-        s = pc1[j].int
+        s = pc1[j]
         m =  s and 7
-        pc1m[j] = if ((keyin[s shr 3] and maskbit[m]) == maskbit[m]): 1 else: 0
+        mask = maskbit[m].byte
+        pc1m[j] = if ((keyin[s shr 3] and mask) == mask): 1 else: 0
 
     for i in 0..15:
         m = if (edf == opDecrypt): (15 - i) shl 1  else: i shl 1
@@ -41,18 +43,18 @@ proc initKeys(keyin: openArray[byte], edf: blockOp, keyout: var subkeys) =
         kn[n] = 0
         
         for j in 0..27:
-            s = j + totrot[i].int;
+            s = j + totrot[i];
             pcr[j] = if (s < 28): pc1m[s] else: pc1m[s - 28]
         
         for j in 28..55:
-            s = j + totrot[i].int;
+            s = j + totrot[i];
             pcr[j] = if (s < 56): pc1m[s] else: pc1m[s - 28]
         
         for j in 0 .. <bigbyte.len:
-            if (pcr[pc2[j].int] != 0'u8):
+            if (pcr[pc2[j]] != 0'u8):
                kn[m] = kn[m] or bigbyte[j]
             
-            if (pcr[pc2[j+24].int] != 0'u8):
+            if (pcr[pc2[j+24]] != 0'u8):
                kn[n] = kn[n] or bigbyte[j]
 
     cookey(kn, keyout)
@@ -96,28 +98,28 @@ proc desfunc(data: var openarray[uint32], key: var subkeys) =
         k4 = addr key[4*cur_round + 3]
         
         work  = ror(right, 4) xor k1[]
-        left = left xor SP7[work  and 0x3f] xor
-                SP5[(work shr  8) and 0x3f] xor
-                SP3[(work shr 16) and 0x3f] xor
-                SP1[(work shr 24) and 0x3f]
+        left = left xor SP7[int(work  and 0x3f)] xor
+                SP5[int((work shr  8) and 0x3f)] xor
+                SP3[int((work shr 16) and 0x3f)] xor
+                SP1[int((work shr 24) and 0x3f)]
         
         work  = right xor k2[]
-        left = left xor SP8[work  and 0x3f] xor
-                SP6[(work shr  8) and 0x3f] xor
-                SP4[(work shr 16) and 0x3f] xor
-                SP2[(work shr 24) and 0x3f]
+        left = left xor SP8[int(work  and 0x3f)] xor
+                SP6[int((work shr  8) and 0x3f)] xor
+                SP4[int((work shr 16) and 0x3f)] xor
+                SP2[int((work shr 24) and 0x3f)]
 
         work = ror(left, 4) xor k3[]
-        right = right xor SP7[work and 0x3f] xor
-                SP5[(work shr  8) and 0x3f]  xor
-                SP3[(work shr 16) and 0x3f]  xor
-                SP1[(work shr 24) and 0x3f]
+        right = right xor SP7[int(work and 0x3f)] xor
+                SP5[int((work shr  8) and 0x3f)]  xor
+                SP3[int((work shr 16) and 0x3f)]  xor
+                SP1[int((work shr 24) and 0x3f)]
         
         work  = left xor k4[]
-        right = right xor SP8[work and 0x3f] xor
-                SP6[(work shr  8) and 0x3f]  xor
-                SP4[(work shr 16) and 0x3f]  xor
-                SP2[(work shr 24) and 0x3f]
+        right = right xor SP8[int(work and 0x3f)] xor
+                SP6[int((work shr  8) and 0x3f)]  xor
+                SP4[int((work shr 16) and 0x3f)]  xor
+                SP2[int((work shr 24) and 0x3f)]
 
     right = ror(right, 1)
     work = (left xor right) and 0xaaaaaaaa'u32

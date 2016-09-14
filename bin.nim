@@ -77,43 +77,39 @@ proc `[]`*(buff: binBuffer, s: Slice[int]): binBuffer =
     result.view.a = (buff.view.a + s.a).clamp(0, <buff.size)
 
     if result.view.a > result.view.b:
-        swap (result.view.a, result.view.b)
+        swap(result.view.a, result.view.b)
 
 #-----------------------
-proc testBit*(buff: binBuffer, idx: int): bool = 
-    if idx > (buff.len * 8 - 1):
-        result = false
-    else:
-        var mask = 1 shl (7 - idx and 7)
-        result = (buff[idx div 8] and mask.byte) != 0
+const maskbit* = [0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01]
 
-proc testBit*(buff: openArray[byte], idx: int): bool =
+template testBit*[T: binBuffer|openArray[byte]](buff: T, idx: int): bool = 
+    var result: bool = false
     if idx > (buff.len * 8 - 1):
         result = false
     else:
-        var mask = 1 shl (7 - idx and 7)
+        var mask =  maskbit[idx and 7]
         result = (buff[idx div 8] and mask.byte) != 0
+    result
 #---
 proc setBit*(buff: binBuffer, idx: int) =
     if idx <= (buff.len * 8 - 1):
-        var mask = 1 shl (7 - idx and 7)
+        var mask =  maskbit[idx and 7]
         buff[idx div 8] = buff[idx div 8] or mask.byte
 
 proc setBit*(buff: var openArray[byte], idx: int) =
     if idx <= (buff.len * 8 - 1):
-        var mask = 1 shl (7 - idx and 7)
+        var mask =  maskbit[idx and 7]
         buff[idx div 8] = buff[idx div 8] or mask.byte
 #---
 proc resetBit*(buff: binBuffer, idx: int) =
     if idx <= (buff.len * 8 - 1):
-        var mask = 1 shl (7 - idx and 7)
+        var mask =  maskbit[idx and 7]
         buff[idx div 8] = buff[idx div 8] and not(mask.byte)
 
 proc resetBit*(buff: var openArray[byte], idx: int) =
     if idx <= (buff.len * 8 - 1):
-        var mask = 1 shl (7 - idx and 7)
+        var mask =  maskbit[idx and 7]
         buff[idx div 8] = buff[idx div 8] and not(mask.byte)
-
 
 #-----------------------
 iterator items*(buff: binBuffer): byte =
