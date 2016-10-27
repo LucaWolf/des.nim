@@ -117,6 +117,12 @@ iterator items*(buff: binBuffer): byte =
   for n in 0..noItems:
     yield buff[n]
 
+iterator pairs*(buff: binBuffer): tuple[key: int, val: byte] =
+  var i = 0
+  while i < len(buff):
+    yield (i, buff[i])
+    inc(i)
+
 iterator mitems*(buff: binBuffer): var byte =
   let noItems = (buff.view.b - buff.view.a)
   for n in 0..noItems:
