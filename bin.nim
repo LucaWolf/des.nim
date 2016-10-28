@@ -43,6 +43,13 @@ proc len*(buff: binBuffer): int =
     result = buff.view.b - buff.view.a + 1
 
 
+proc setlen*(buff: var binBuffer, n: int) =
+    if n > 0:
+        buff.view.b = (buff.view.a + <n).clamp(0, <buff.size)
+
+proc resetlen*(buff: var binBuffer) =
+    buff.view = 0 .. <buff.size
+        
 proc toBinBuffer*[T](data: openArray[T]): binBuffer =
     new(result)
     result.data = cast[cstring](unsafeAddr data[0])
