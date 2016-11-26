@@ -1,11 +1,13 @@
 import strutils, sequtils
 
+discard """
 #--- add here required converters
 converter i64ToU32*(x: int64): uint32 =
     result = x.uint32
 converter iToU8(x: int): uint8 =
     result = x.uint8
 #---
+"""
 
 #-----------------------
 template seqOf*[T,N] (buff: openarray[T]): seq[N] =

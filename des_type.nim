@@ -14,7 +14,7 @@ type
         macX9_9, # wholesale banking
         macX9_19 # retail banking
         
-    subkeys* = array[32, uint32]
+    subkeys* = array[32, int32]
     desBlock* = array[desBlockSize, byte]
     desKey* = array[desBlockSize, byte]
 

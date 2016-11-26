@@ -7,18 +7,23 @@ proc cookey(raw: subkeys, key: var subkeys) =
         var
             raw0 = raw[2*i]
             raw1 = raw[2*i + 1]
-            k1 = addr key[2*i]
-            k2 = addr key[2*i + 1]
+            # init
+            k1 = key[2*i]
+            k2 = key[2*i + 1]
             
-        k1[] =           (raw0 and 0x00fc0000'u32) shl 6'u8
-        k1[] =  k1[] or ((raw0 and 0x00000fc0'u32) shl 10'u8)
-        k1[] =  k1[] or ((raw1 and 0x00fc0000'u32) shr 10'u8)
-        k1[] =  k1[] or ((raw1 and 0x00000fc0'u32) shr 6'u8)        
+        k1 =        (raw0 and 0x00fc0000) shl 6
+        k1 = k1 or ((raw0 and 0x00000fc0) shl 10)
+        k1 = k1 or ((raw1 and 0x00fc0000) shr 10)
+        k1 = k1 or ((raw1 and 0x00000fc0) shr 6)        
         
-        k2[] =          ((raw0 and 0x0003f000'u32) shl 12'u8)
-        k2[] =  k2[] or ((raw0 and 0x0000003f'u32) shl 16'u8)
-        k2[] =  k2[] or ((raw1 and 0x0003f000'u32) shr 4'u8)
-        k2[] =  k2[] or  (raw1 and 0x0000003f'u32)
+        k2 =        ((raw0 and 0x0003f000) shl 12)
+        k2 = k2 or ((raw0 and 0x0000003f) shl 16).toU32()
+        k2 = k2 or ((raw1 and 0x0003f000) shr 4)
+        k2 = k2 or  (raw1 and 0x0000003f)
+
+        # write back
+        key[2*i] = k1 
+        key[2*i + 1] = k2
         
 
 #---------
@@ -60,124 +65,113 @@ proc initKeys(keyin: openArray[byte], edf: blockOp, keyout: var subkeys) =
     cookey(kn, keyout)
     
 #---------    
-proc desfunc(data: var openarray[uint32], key: var subkeys) =
+proc desfunc(data: var int64, key: var subkeys) =
     var
-        work, right, left: uint32
-        k1,k2,k3,k4: ptr uint32
+        work, right, left: int
 
-    left = data[0]
-    right = data[1]
+    left = (data shr 32).toU32()
+    right = data.toU32()
 
-    work = ((left shr 4)  xor right) and 0x0f0f0f0f'u32
+    work = ((left shr 4)  xor right) and 0x0f0f0f0f
     right = right xor work
     left = left xor (work shl 4)
 
-    work = ((left shr 16) xor right) and 0x0000ffff'u32
+    work = ((left shr 16) xor right) and 0x0000ffff
     right = right xor work
     left = left xor (work shl 16)
 
-    work = ((right shr 2)  xor left) and 0x33333333'u32
+    work = ((right shr 2)  xor left) and 0x33333333
     left = left xor work
     right = right xor (work shl 2)
 
-    work = ((right shr 8)  xor left) and 0x00ff00ff'u32
+    work = ((right shr 8)  xor left) and 0x00ff00ff
     left = left xor work
     right = right xor (work shl 8)
 
     right = rol(right, 1)
-    work = (left xor right) and 0xaaaaaaaa'u32
+    work = (left xor right) and 0xaaaaaaaa.toU32()
 
     left = left xor work
     right = right xor work
     left = rol(left, 1)
 
     for cur_round in 0..7:
-        k1 = addr key[4*cur_round]
-        k2 = addr key[4*cur_round + 1]
-        k3 = addr key[4*cur_round + 2]
-        k4 = addr key[4*cur_round + 3]
+        let k1 = key[4*cur_round]
+        let k2 = key[4*cur_round + 1]
+        let k3 = key[4*cur_round + 2]
+        let k4 = key[4*cur_round + 3]
         
-        work  = ror(right, 4) xor k1[]
-        left = left xor SP7[int(work  and 0x3f)] xor
-                SP5[int((work shr  8) and 0x3f)] xor
-                SP3[int((work shr 16) and 0x3f)] xor
-                SP1[int((work shr 24) and 0x3f)]
+        work  = ror(right, 4) xor k1
+        left = left xor SP7[work  and 0x3f] xor
+                SP5[(work shr  8) and 0x3f] xor
+                SP3[(work shr 16) and 0x3f] xor
+                SP1[(work shr 24) and 0x3f]
         
-        work  = right xor k2[]
-        left = left xor SP8[int(work  and 0x3f)] xor
-                SP6[int((work shr  8) and 0x3f)] xor
-                SP4[int((work shr 16) and 0x3f)] xor
-                SP2[int((work shr 24) and 0x3f)]
+        work  = right xor k2
+        left = left xor SP8[work  and 0x3f] xor
+                SP6[(work shr  8) and 0x3f] xor
+                SP4[(work shr 16) and 0x3f] xor
+                SP2[(work shr 24) and 0x3f].toU32()
 
-        work = ror(left, 4) xor k3[]
-        right = right xor SP7[int(work and 0x3f)] xor
-                SP5[int((work shr  8) and 0x3f)]  xor
-                SP3[int((work shr 16) and 0x3f)]  xor
-                SP1[int((work shr 24) and 0x3f)]
+        work = ror(left, 4) xor k3
+        right = right xor SP7[work and 0x3f] xor
+                SP5[(work shr  8) and 0x3f]  xor
+                SP3[(work shr 16) and 0x3f]  xor
+                SP1[(work shr 24) and 0x3f]
         
-        work  = left xor k4[]
-        right = right xor SP8[int(work and 0x3f)] xor
-                SP6[int((work shr  8) and 0x3f)]  xor
-                SP4[int((work shr 16) and 0x3f)]  xor
-                SP2[int((work shr 24) and 0x3f)]
+        work  = left xor k4
+        right = right xor SP8[work and 0x3f] xor
+                SP6[(work shr  8) and 0x3f]  xor
+                SP4[(work shr 16) and 0x3f]  xor
+                SP2[(work shr 24) and 0x3f].toU32()
 
     right = ror(right, 1)
-    work = (left xor right) and 0xaaaaaaaa'u32
+    work = (left xor right) and 0xaaaaaaaa.toU32()
     left = left xor work
     right = right xor work
     left = ror(left, 1)
-    work = ((left shr 8) xor right) and 0x00ff00ff'u32
+    work = ((left shr 8) xor right) and 0x00ff00ff
     right = right xor work
     left = left xor (work shl 8)
     #
-    work = ((left shr 2) xor right) and 0x33333333'u32
+    work = ((left shr 2) xor right) and 0x33333333
     right = right xor work
     left = left xor (work shl 2)
-    work = ((right shr 16) xor left) and 0x0000ffff'u32
+    work = ((right shr 16) xor left) and 0x0000ffff
     left = left xor work
     right = right xor (work shl 16)
-    work = ((right shr 4) xor left) and 0x0f0f0f0f'u32
+    work = ((right shr 4) xor left) and 0x0f0f0f0f
     left = left xor work
     right = right xor (work shl 4)
 
-    data[0] = right
-    data[1] = left
+    data = (right shl 32) or left
 
 #--------- DES and DES3 objects -----
 type
     desCipherObj = object
         keyEnc: array[3, subkeys]
         keyDec: array[3, subkeys]
-        iv: array[2, uint32]
+        iv: int64
         restricted: bool # enforces using of 1st key only -- single DES mode
         keyIsSingle: bool # tells if original key was single DES
     desCipher* = ref desCipherObj
 
 
 #---------
-proc cryptBlock(cipher: desCipher, src, dst: binBuffer, mode: blockMode, operation: blockOp) =
-    if (src.len != desBlockSize):
-        raise newException(RangeError, "Src Not block:" & $src.len)
-    if (dst.len != desBlockSize):
-        raise newException(RangeError, "Dst Not block:" & $dst.len)
-
+proc cryptBlock(cipher: desCipher; src: int64; mode: blockMode; operation: blockOp): int64 =
 
     var
-        work: array[2, uint32]
-        tmp: array[2, uint32]
+        work = src
+        tmp: int64
     
-    discard src.loadHigh(work[0], 0)
-    discard src.loadHigh(work[1], 4)
-
     # CBC only
     if mode == modeCBC:
         if operation == opEncrypt:
             # encryption XORs before crypt
-            work[0] = work[0] xor cipher.iv[0]
-            work[1] = work[1] xor cipher.iv[1]
+            work = work xor cipher.iv 
         else:
             # decryption needs the previous encrypted block as iv
-            tmp[0] = work[0]; tmp[1] = work[1]
+            tmp = work
     
     if operation == opEncrypt:
         desfunc(work, cipher.keyEnc[0])
@@ -194,14 +188,12 @@ proc cryptBlock(cipher: desCipher, src, dst: binBuffer, mode: blockMode, operati
     if mode == modeCBC:
         if operation == opEncrypt:
             # encryption updates the iv to last output
-            cipher.iv[0] = work[0]; cipher.iv[1] = work[1]
+            cipher.iv = work
         else:
             # decryption XORs after crypt
-            work[0] = work[0] xor cipher.iv[0]
-            work[1] = work[1] xor cipher.iv[1] 
+            work = work xor cipher.iv
             # recover iv from the previous encrypted block
-            cipher.iv[0] = tmp[0]; cipher.iv[1] = tmp[1]
+            cipher.iv = tmp
         
-    discard dst.storeHigh(work[0], 0)
-    discard dst.storeHigh(work[1], 4)
+    result = work
 

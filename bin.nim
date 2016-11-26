@@ -2,32 +2,15 @@ import strutils, sequtils, endians
 include bin_utils
 
 #-----------------
-proc rol*(x: uint8, y: uint8): uint8 =
-    result = (x shl (y and 7'u8)) or (x shr (8'u8 - (y and 7'u8)))
-
-proc rol*(x: uint16, y: uint8): uint16 =
-    result = (x shl (y and 15'u8)) or (x shr (16'u8 - (y and 15'u8)))
-
-proc rol*(x: uint32, y: uint8): uint32 =
-    result = (x shl (y and 31'u8)) or (x shr (32'u8 - (y and 31'u8)))
-
-proc rol*(x: uint64, y: uint8): uint64 =
-    ## rotates left with wrap-around any unsigned integer
-    result = (x shl (y and 63'u8)) or (x shr (64'u8 - (y and 63'u8)))
+proc rol*[T](x: T, y: int8): T =
+    let n = sizeof(x).T
+    result = (x shl (y and <n)) or (x shr (n - (y and <n)))
 
 #-----------------
-proc ror*(x: uint8, y: uint8): uint8 =
-    result = (x shr (y and 7'u8)) or (x shl (8'u8 - (y and 7'u8)))
+proc ror*[T](x: T, y: int8): T =
+    let n = sizeof(x).T
+    result = (x shr (y and <n)) or (x shl (n - (y and <n)))
 
-proc ror*(x: uint16, y: uint8): uint16 =
-    result = (x shr (y and 15'u8)) or (x shl (16'u8 - (y and 15'u8)))
-
-proc ror*(x: uint32, y: uint8): uint32 =
-    result = (x shr (y and 31'u8)) or (x shl (32'u8 - (y and 31'u8)))
-
-proc ror*(x: uint64, y: uint8): uint64 =
-    ## rotates right with wrap-around any unsigned integer
-    result = (x shr (y and 63'u8)) or (x shl (64'u8 - (y and 63'u8)))
 #-----------------
 
 
@@ -165,6 +148,27 @@ proc copy*(dst: binBuffer; src: binBuffer) =
     copyMem(addr dst.data[dst.view.a], addr src.data[src.view.a], n)
 
 
+#-----------------------
+proc load64BE*(data: openArray[byte]; pos: int = 0): int64 =
+    result = (cast[int64](data[pos])   shl 56) or
+             (cast[int64](data[pos+1]) shl 48) or
+             (cast[int64](data[pos+2]) shl 40) or
+             (cast[int64](data[pos+3]) shl 32) or
+             (cast[int64](data[pos+4]) shl 24) or
+             (cast[int64](data[pos+5]) shl 16) or
+             (cast[int64](data[pos+6]) shl 8) or
+             (cast[int64](data[pos+7]))
+
+proc store64BE*(value: int64; data: var openArray[byte], pos: int = 0) =
+    data[pos] = (value shr 56) and 0xFF
+    data[pos+1] = (value shr 48) and 0xFF
+    data[pos+2] = (value shr 40) and 0xFF
+    data[pos+3] = (value shr 32) and 0xFF
+    data[pos+4] = (value shr 24) and 0xFF
+    data[pos+5] = (value shr 16) and 0xFF
+    data[pos+6] = (value shr 8) and 0xFF
+    data[pos+7] = value and 0xFF
+    
 #-----------------------
 proc loadHigh*[T: SomeUnsignedInt](buff: binBuffer, value: var T, offset: int = 0): bool =
     ##  Reads an unsigned integer of type T from a sequence of bytes representing a big endian number.
