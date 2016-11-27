@@ -3,12 +3,12 @@ include bin_utils
 
 #-----------------
 proc rol*[T](x: T, y: int8): T =
-    let n = sizeof(x).T
+    let n = 8 * sizeof(x).T # how many bits in x
     result = (x shl (y and <n)) or (x shr (n - (y and <n)))
 
 #-----------------
 proc ror*[T](x: T, y: int8): T =
-    let n = sizeof(x).T
+    let n = 8 * sizeof(x).T # how many bits in x
     result = (x shr (y and <n)) or (x shl (n - (y and <n)))
 
 #-----------------
