@@ -8,13 +8,13 @@ proc pekBlackBox(currKey: var dukptKey, currKSN: dukptKsn) =
     var
         keyLeft, keyRight: desKey # copies
         msg, ksnLSB: desKey
-        nextKeyLeft = currKey.toBinBuffer()[0..<desBlockSize] # direct output
-        nextKeyRight = currKey.toBinBuffer()[desBlockSize .. ^1]
+        nextKeyLeft: desKey
+        nextKeyRight: desKey
         cipher: desCipher
         
-    copyMem(addr keyLeft[0],  addr currKey[0],            desBlockSize)
-    copyMem(addr keyRight[0], addr currKey[desBlockSize], desBlockSize)
-    copyMem(addr ksnLSB[0], unsafeaddr currKSN[2], desBlockSize)
+    currKey.copyTo(keyLeft)
+    currKey[desBlockSize .. ^1].copyTo(keyRight)
+    currKSN[2 .. ^1].copyTo(ksnLSB)
 
     # ===============================================
     # LSB of new key is:
@@ -27,6 +27,7 @@ proc pekBlackBox(currKey: var dukptKey, currKSN: dukptKsn) =
     cipher = newDesCipher(keyLeft)
     cipher.encrypt(msg, nextKeyRight)
     nextKeyRight.applyWith(keyRight, `xor`)
+    nextKeyRight.copyTo(currKey, desBlockSize) #apply back to currKey[desBlockSize .. ^1]
 
     # ===============================================
     # MSB of new key is as above but the input key is
@@ -39,17 +40,18 @@ proc pekBlackBox(currKey: var dukptKey, currKSN: dukptKsn) =
     msg.applyWith(ksnLSB,`xor`)
     cipher = newDesCipher(keyLeft)
     cipher.encrypt(msg, nextKeyLeft)
-    nextKeyLeft.applyWith(keyRight, `xor`)
+    nextKeyLeft.applyWith(keyRight, `xor`) 
+    nextKeyLeft.copyTo(currKey) #apply back to currKey[0..<desBlockSize]
 
 #----
 proc createPEK*(ipek, ksn: openArray[byte]): dukptKey =
     var
         ksnAccumulator: dukptKsn
 
-    copyMem(addr ksnAccumulator[0], unsafeAddr ksn[0], ksnSize)
+    ksn.copyTo(ksnAccumulator)
     ksnAccumulator.applyWith(ksnCounterMask, `and`)
 
-    copyMem(addr result[0], unsafeAddr ipek[0], 2*desBlockSize)
+    ipek.copyTo(result)
 
     # ===============================================
     # k(n+1) derived from k(n) and ksn(n)
@@ -62,7 +64,7 @@ proc createPEK*(ipek, ksn: openArray[byte]): dukptKey =
     #  ksn(3) = 9876543210E0000B (B = A|0001),
     # ===============================================
 
-    for n in (8*ksnSize - counter_bits) .. <(8*ksnSize):
+    for n in (8*ksnSize - ksnCounterBits) .. <(8*ksnSize):
         if testBit(ksn, n):
             setBit(ksnAccumulator, n)
             result.pekBlackBox(ksnAccumulator)
@@ -75,7 +77,7 @@ proc createIPEK(bdk, ksn: openArray[byte]): dukptKey =
         ipek_r: array[desBlockSize, byte]
         ksnAccumulator: dukptKsn
 
-    copyMem(addr ksnAccumulator[0], unsafeAddr ksn[0], ksnSize)
+    ksn.copyTo(ksnAccumulator)
     ksnAccumulator.applyWith(ksnCounterMask, `and`)
     
     # left register IPEK
@@ -88,8 +90,8 @@ proc createIPEK(bdk, ksn: openArray[byte]): dukptKey =
     tripleDes = newDesCipher(keyMasked)
     tripleDes.encrypt(ksnAccumulator, ipek_r, modeCBC)
 
-    copyMem(addr result[0],            addr ipek_l[0], desBlockSize)
-    copyMem(addr result[desBlockSize], addr ipek_r[0], desBlockSize)
+    ipek_l.copyTo(result, 0)
+    ipek_r.copyTo(result, desBlockSize)
 
 #--------------
 
@@ -110,9 +112,7 @@ proc restrict*(cipher: dukptCipher, useSingleDes: bool = true) =
 
 #---
 proc selectKey*(cipher: var dukptCipher, variant: keyVariant) =
-    var maskKey: dukptKey
-
-    copyMem(addr maskKey[0], addr cipher.pek[0], maskKey.len)
+    var maskKey = cipher.pek
 
     case variant
     of kvData:
@@ -134,11 +134,8 @@ proc selectKey*(cipher: var dukptCipher, variant: keyVariant) =
 #---
 proc newDukptCipher*(bdk, ksn: openArray[byte]): dukptCipher =
 
-    if bdk.len != 2 * desBlockSize:
-        raise newException(RangeError, "BDK not desBlockSize multiple:" & $bdk.len)
-
-    if ksn.len != ksnSize:
-        raise newException(RangeError, "KSN wrong size:" & $ksn.len)
+    doAssert(bdk.len == 2 * desBlockSize, "BDK not desBlockSize multiple:" & $bdk.len)
+    doAssert(ksn.len == ksnSize, "KSN wrong size:" & $ksn.len)
         
     new(result)
     

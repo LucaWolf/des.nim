@@ -13,7 +13,6 @@ proc ror*[T](x: T, y: int8): T =
 
 #-----------------
 
-
 type
     binBufferObj = object
         data: cstring
@@ -143,9 +142,10 @@ template applyWith*(buff, mask: typed, action: untyped): typed =
         if j == <n: j = 0 else: inc(j) 
 
 #-----------------------
-proc copy*(dst: binBuffer; src: binBuffer) =
-    var n = (src.len).clamp(0, dst.len)
-    copyMem(addr dst.data[dst.view.a], addr src.data[src.view.a], n)
+template copyTo*(src: typed; dst: typed; at:int = 0) =
+    var n = (src.len).clamp(0, dst.len - at)
+    for i in 0 .. <n:
+        dst[at + i] = src[i]
 
 
 #-----------------------
@@ -168,7 +168,20 @@ proc store64BE*(value: int64; data: var openArray[byte], pos: int = 0) =
     data[pos+5] = (value shr 16) and 0xFF
     data[pos+6] = (value shr 8) and 0xFF
     data[pos+7] = value and 0xFF
-    
+
+# string data
+proc load64BE*(data: string; pos: int = 0): int64 =
+    result = (cast[int64](data[pos].ord())   shl 56) or
+             (cast[int64](data[pos+1].ord()) shl 48) or
+             (cast[int64](data[pos+2].ord()) shl 40) or
+             (cast[int64](data[pos+3].ord()) shl 32) or
+             (cast[int64](data[pos+4].ord()) shl 24) or
+             (cast[int64](data[pos+5].ord()) shl 16) or
+             (cast[int64](data[pos+6].ord()) shl 8) or
+             (cast[int64](data[pos+7].ord()))
+
+
+
 #-----------------------
 proc loadHigh*[T: SomeUnsignedInt](buff: binBuffer, value: var T, offset: int = 0): bool =
     ##  Reads an unsigned integer of type T from a sequence of bytes representing a big endian number.

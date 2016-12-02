@@ -3,6 +3,34 @@ export bin, des_const, des_type
 
 include des_core
     
+proc lastBlock*(src: string; dst: var desBlock; pad: blockPadding; extraBlock: bool): bool =
+
+    var n = src.len and <desBlockSize # i.e. mod 8
+    var padLen = desBlockSize - n
+
+    if padLen == desBlockSize and extraBlock == false:
+        padLen = 0
+
+    if padLen != 0:
+        result = true
+        if padLen != 8:
+            for i in 0 .. <n:
+                dst[i] = src[^(n-i)].ord()
+        
+        # fill in the rest of bytes to the desired scheme
+        case pad
+            of padPKCS5:
+                for i in (desBlockSize - padLen) .. <desBlockSize:
+                    dst[i] = padLen.byte
+            of padX923:
+                dst[^1] = padLen.byte
+            of padISO7816:
+                dst[^padLen] = 0x80'u8
+            else:
+                discard # leave zeros as if padZero
+    else:
+        result = false
+
 #---
 proc lastBlock*(src: openarray[byte]; dst: var desBlock; pad: blockPadding; extraBlock: bool): bool =
     ## Formats the *dst* as the paddded last chunk of *src* if deemed too short. 
@@ -129,7 +157,22 @@ proc encrypt*(cipher: desCipher; src:openArray[byte]; dst: var openArray[byte]; 
         n = src.len div desBlocksize
         v, d: int64
 
-    doAssert(n*desBlockSize <= dst.len, "Output too short")
+    doAssert(n*desBlockSize <= dst.len, "Encrypt holder too short")
+    
+    # this excludes the last incomplete chunk if any
+    for i in 0 .. <n:
+        v = load64BE(src, pos)
+        d = cipher.cryptBlock(v, mode, opEncrypt)
+        store64BE(d, dst, pos)
+        inc(pos, desBlockSize)
+
+proc encrypt*(cipher: desCipher; src: string; dst: var openArray[byte]; mode: blockMode = modeCBC) =
+    var
+        pos = 0
+        n = src.len div desBlocksize
+        v, d: int64
+
+    doAssert(n*desBlockSize <= dst.len, "Encrypt holder too short")
     
     # this excludes the last incomplete chunk if any
     for i in 0 .. <n:
@@ -151,7 +194,24 @@ proc decrypt*(cipher: desCipher; src: openArray[byte]; dst: var openArray[byte];
 
     # mod 8 is: val and 0x07
     doAssert((src.len and <desBlockSize) == 0, "Input incomplete block")
-    doAssert(src.len <= dst.len, "Output too short")
+    doAssert(src.len <= dst.len, "Decrypt holder too short")
+    
+    # this excludes the last incomplete chunk if any
+    for i in 0 .. <n:
+        v = load64BE(src, pos)
+        d = cipher.cryptBlock(v, mode, opDecrypt)
+        store64BE(d, dst, pos)
+        inc(pos, desBlockSize)
+
+proc decrypt*(cipher: desCipher; src: string; dst: var openArray[byte]; mode: blockMode = modeCBC) =
+    var
+        pos = 0
+        n = src.len div desBlocksize
+        v, d: int64
+
+    # mod 8 is: val and 0x07
+    doAssert((src.len and <desBlockSize) == 0, "Input incomplete block")
+    doAssert(src.len <= dst.len, "Decrypt holder too short")
     
     # this excludes the last incomplete chunk if any
     for i in 0 .. <n:
@@ -172,6 +232,42 @@ proc mac*(cipher: desCipher; src :openArray[byte]; dst: var desBlock; version: m
     
     # input could have an incomplete block as we use the padding param,
     # test only only the output
+    doAssert(desBlockSize <= dst.len, "MAC holder too short")
+    
+    var
+        n = src.len div desBlocksize
+        padBlock: desBlock
+        pos = 0
+        s, d: int64
+
+    let hasPadding = src.lastBlock(padBlock, pad, enforceFullBlockPadding)
+    
+    if version == macX9_19:
+        cipher.restrict(true)
+        if  hasPadding == false:
+            dec(n)
+
+    for i in 0 .. <n:
+        s = load64BE(src, pos)
+        d = cipher.cryptBlock(s, modeCBC, opEncrypt)
+        inc(pos, desBlockSize)
+    
+    # last block and future operations reset to full key
+    cipher.restrict(false)
+    
+    if hasPadding:
+        s = load64BE(padBlock, 0)
+        d = cipher.cryptBlock(s, modeCBC, opEncrypt)
+    else:
+        if version == macX9_19:
+            # full blocks and last one needs 3DES
+            pos = src.len - desBlocksize
+            s = load64BE(src, pos)
+            d = cipher.cryptBlock(s, modeCBC, opEncrypt)
+    
+    store64BE(d, dst)
+
+proc mac*(cipher: desCipher; src :string; dst: var desBlock; version: macVersion; pad: blockPadding, enforceFullBlockPadding: bool = false) =
     doAssert(desBlockSize <= dst.len, "MAC holder too short")
     
     var
