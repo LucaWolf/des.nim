@@ -1,4 +1,4 @@
-import strutils, sequtils, endians
+import strutils, sequtils, endians, typeinfo
 include bin_utils
 
 #-----------------
@@ -142,12 +142,21 @@ template applyWith*(buff, mask: typed, action: untyped): typed =
         if j == <n: j = 0 else: inc(j) 
 
 #-----------------------
-template copyTo*(src: typed; dst: typed; at:int = 0) =
-    var n = (src.len).clamp(0, dst.len - at)
+# for easy of access, the slice holds the length (.b points to next element)
+template copyTo*(src: typed; frame: Slice[int]; dst: typed; at:int = 0) =
+    var n = (frame.b - frame.a).clamp(0, dst.len - at)
+
     for i in 0 .. <n:
-        dst[at + i] = src[i]
+        dst[at + i] = src[frame.a + i]
 
 
+template copyTo*(src: typed; dst: typed; at:int = 0) =
+    copyTo(src, 0 .. src.len(), dst, at)
+    
+
+template copyLastTo*(src: typed; last: int; dst: typed; at:int = 0) =
+    copyTo(src, src.len() - last .. src.len(), dst, at)
+    
 #-----------------------
 proc load64BE*(data: openArray[byte]; pos: int = 0): int64 =
     result = (cast[int64](data[pos])   shl 56) or

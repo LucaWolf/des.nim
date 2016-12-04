@@ -66,7 +66,17 @@ when isMainModule:
             fmt_text, "Sto bene, non ti preoccupare!\x00\x00\x00", "617fbb34591c8def389b202cadddfd9e57573471a39e43b515816037a319c9fb"),
         
         #3DES key suite
+        ("T17", 0xd961fdb4c5eecbf7'u64, fromHex("617fbb34591c8def389b202cadddfd9e57573471a39e43b5"),
+            fmt_hex, "FEDCBA09040302018070605040302010", "640bc66f68ee47e8a73eb8b7f9891244"),
         
+        ("T18", 0x9c63a97477f670d0'u64, fromHex("91d5886d97efa59b82fd20c3733ca114728a0a51f0edc81a"),
+            fmt_hex, "df38d82ffeaf8675f8442da1f8fab047eaa6adbeee69cc6f4296f717cafd9d01", "df28d4f2aace1b028b1a1e8b0d9bc51bd79aeda555de70eacc1562f2a710c366"),
+        
+        ("T19", 0x7afba9a099c10130'u64, fromHex("df28d4f2aace1b028b1a1e8b0d9bc51bd79aeda555de70ea"),
+            fmt_text, "Lorem ipsum dolor sit amet, ex sanctus appellant", "87926cb6dadb6ce1303cb36148b8257950ddddd4226b29291a725090d678d46ce55b772d0c2ff433d0f16e94a076a669"),
+        
+        ("T20", 0xc087842e60130df2'u64, fromHex("87926cb6dadb6ce1303cb36148b8257950ddddd4226b2929"),
+            fmt_text, "Sto bene, non ti preoccupare!\x00\x00\x00", "d7f1a17f6c32f6b841d765ccf63f40bb3024ce2be100679c9af7fd346f1e4bce"),
         ]
     var
         mode = modeCBC
@@ -104,6 +114,68 @@ when isMainModule:
         else:
             let clear = output.toString()
             doAssert(clear == v.clear, "\n$1: dec [$2] vs clear [$3] " % [v.desc, clear, v.clear])
+
+    echo "=== passed ==="
+
+    # padding suite
+    echo "=== Padding tests ==="
+    var
+        sPart = "0123456789ABCDEFyes" # partial block
+        sFull = "0123456789ABCDEF" # full block
+        bPart = @[1'u8, 2, 3, 4, 5, 6, 7, 8, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE] # partial block
+        bFull = @[0'u8, 1, 2, 3, 4, 5, 6, 7, 8, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF] # full block
+        padBlock: desBlock
+
+    # string partial input
+    discard sPart.lastBlock(padBlock, padPKCS5, true)
+    let res1 = ['y'.ord().byte, 'e'.ord(), 's'.ord(), 5, 5, 5, 5, 5]
+    doAssert(padBlock == res1, "\nPad 1: $1 vs expected $2" % [padBlock.toHex(true), res1.toHex(true)])
+
+    discard sPart.lastBlock(padBlock, padX923, true)
+    let res2 = ['y'.ord().byte, 'e'.ord(), 's'.ord(), 0, 0, 0, 0, 5]
+    doAssert(padBlock == res2, "\nPad 2: $1 vs expected $2" % [padBlock.toHex(true), res2.toHex(true)])
+
+    discard sPart.lastBlock(padBlock, padISO7816, true)
+    let res3 = ['y'.ord().byte, 'e'.ord(), 's'.ord(), 0x80, 0, 0, 0, 0]
+    doAssert(padBlock == res3, "\nPad 3: $1 vs expected $2" % [padBlock.toHex(true), res3.toHex(true)])
+
+    # bin partial input
+    discard bPart.lastBlock(padBlock, padPKCS5, true)
+    let res7 = [0x99.byte, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 2, 2]
+    doAssert(padBlock == res7, "\nPad 7: $1 vs expected $2" % [padBlock.toHex(true), res7.toHex(true)])
+    
+    discard bPart.lastBlock(padBlock, padX923, true)
+    let res8 = [0x99.byte, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0, 2]
+    doAssert(padBlock == res8, "\nPad 7: $1 vs expected $2" % [padBlock.toHex(true), res8.toHex(true)])
+    
+    discard bPart.lastBlock(padBlock, padISO7816, true)
+    let res9 = [0x99.byte, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x80, 0]
+    doAssert(padBlock == res9, "\nPad 7: $1 vs expected $2" % [padBlock.toHex(true), res9.toHex(true)])
+    
+    # common padding to all full input tests
+    let fullPKCS5 = [8.byte, 8, 8, 8, 8, 8, 8, 8]
+    let fullX923 = [0.byte, 0, 0, 0, 0, 0, 0, 8]
+    let fullISO7816 = [0x80.byte, 0, 0, 0, 0, 0, 0, 0]
+
+    # string full input
+    discard sFull.lastBlock(padBlock, padPKCS5, true)
+    doAssert(padBlock == fullPKCS5, "\nstring fullPKCS5: $1 vs expected $2" % [padBlock.toHex(true), fullPKCS5.toHex(true)])
+
+    discard sFull.lastBlock(padBlock, padX923, true)
+    doAssert(padBlock == fullX923, "\nPad 5: $1 vs expected $2" % [padBlock.toHex(true), fullX923.toHex(true)])
+    
+    discard sFull.lastBlock(padBlock, padISO7816, true)
+    doAssert(padBlock == fullISO7816, "\nPad 6: $1 vs expected $2" % [padBlock.toHex(true), fullISO7816.toHex(true)])
+
+    # bin full input
+    discard bFull.lastBlock(padBlock, padPKCS5, true)
+    doAssert(padBlock == fullPKCS5, "\nbin fullPKCS5: $1 vs expected $2" % [padBlock.toHex(true), fullPKCS5.toHex(true)])
+    
+    discard bFull.lastBlock(padBlock, padX923, true)
+    doAssert(padBlock == fullX923, "\nbin fullX923: $1 vs expected $2" % [padBlock.toHex(true), fullX923.toHex(true)])
+    
+    discard bFull.lastBlock(padBlock, padISO7816, true)
+    doAssert(padBlock == fullISO7816, "\nbin fullISO7816: $1 vs expected $2" % [padBlock.toHex(true), fullISO7816.toHex(true)])
 
     echo "=== passed ==="
 

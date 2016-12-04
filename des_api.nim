@@ -1,3 +1,4 @@
+import sequtils
 import bin, des_const, des_type
 export bin, des_const, des_type
 
@@ -13,10 +14,11 @@ proc lastBlock*(src: string; dst: var desBlock; pad: blockPadding; extraBlock: b
 
     if padLen != 0:
         result = true
-        if padLen != 8:
-            for i in 0 .. <n:
-                dst[i] = src[^(n-i)].ord()
+        dst.applyWith(dst, `xor`) # content reset
         
+        if padLen != 8:
+            dst[0..<n] = map(src[^n..^1], proc(c: char): byte = ord(c))
+
         # fill in the rest of bytes to the desired scheme
         case pad
             of padPKCS5:
@@ -32,7 +34,7 @@ proc lastBlock*(src: string; dst: var desBlock; pad: blockPadding; extraBlock: b
         result = false
 
 #---
-proc lastBlock*(src: openarray[byte]; dst: var desBlock; pad: blockPadding; extraBlock: bool): bool =
+proc lastBlock*(src: openArray[byte]; dst: var desBlock; pad: blockPadding; extraBlock: bool): bool =
     ## Formats the *dst* as the paddded last chunk of *src* if deemed too short. 
     ## The *extraBlock* could enforce a full desBlockSize padding but only when the input
     ## is already multiple of desBlocksize bytes.
@@ -47,9 +49,10 @@ proc lastBlock*(src: openarray[byte]; dst: var desBlock; pad: blockPadding; extr
 
     if padLen != 0:
         result = true
+        dst.applyWith(dst, `xor`) # content reset
+        
         if padLen != 8:
-            for i in 0 .. <n:
-                dst[i] = src[^(n-i)]
+            src.copyLastTo(n, dst)
         
         # fill in the rest of bytes to the desired scheme
         case pad
@@ -74,14 +77,14 @@ proc newDesCipher*(initialKey: openArray[byte]): desCipher =
 
     case initialKey.len
     of desBlockSize:
-        copyMem(addr k1[0], unsafeAddr initialKey[0], desBlockSize)
+        initialKey.copyTo(k1)
     of 2 * desBlockSize:
-        copyMem(addr k1[0], unsafeAddr initialKey[0], desBlockSize)
-        copyMem(addr k2[0], unsafeAddr initialKey[desBlockSize], desBlockSize)
+        initialKey.copyTo(k1)
+        initialKey.copyTo(desBlockSize .. 2*desBlockSize, k2)
     of 3 * desBlockSize:
-        copyMem(addr k1[0], unsafeAddr initialKey[0], desBlockSize)
-        copyMem(addr k2[0], unsafeAddr initialKey[desBlockSize], desBlockSize)
-        copyMem(addr k3[0], unsafeAddr initialKey[2*desBlockSize], desBlockSize)
+        initialKey.copyTo(k1)
+        initialKey.copyTo(desBlockSize .. 2*desBlockSize, k2)
+        initialKey.copyTo(2*desBlockSize .. 3*desBlockSize, k3)
     else:
         doAssert(false, "Key not desBlockSize multiple:" & $initialKey.len)
     
