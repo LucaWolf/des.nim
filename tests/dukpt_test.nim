@@ -1,6 +1,6 @@
 import strutils, sequtils
-import ../des_api
-import ../dukpt_api
+import ../des/des_api
+import ../des/dukpt_api
 
 when isMainModule:
 

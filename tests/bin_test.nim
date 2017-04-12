@@ -1,5 +1,5 @@
 import strutils, sequtils
-import ../des_api
+import ../des/bin
 
 
 var
@@ -20,8 +20,9 @@ while b1.len > 8:
     b1 = b1[8..^1]
 
 b2 = lastChunk.toBinBuffer()
-b2.copy(b1)
+b2.copyTo(b1)
 echo b2.toHex(true)
+echo b1.toHex(true)
 
 
 b2 = txt.toBinBuffer()[2..^1]
@@ -36,47 +37,47 @@ var byte_55_bits = [false, true, false, true, false, true, false, true]
 #test byte 0
 echo "B0 testing ", $data[0]
 for n in 0..7:
-     assert (byte_AA_bits[n] == testBit(data, n), "B0-direct bit $1 not matching" % $n)
+     assert(byte_AA_bits[n] == testBit(data, n), "B0-direct bit $1 not matching" % $n)
 data[0] = data[0] xor 0xFF'u8
 
 echo "B0 rev testing ", $data[0]
 for n in 0..7:
-     assert (byte_55_bits[n] == testBit(data, n), "B0-reversed bit $1 not matching" % $n)
+     assert(byte_55_bits[n] == testBit(data, n), "B0-reversed bit $1 not matching" % $n)
 data[0] = data[0] xor 0xFF'u8
 
 #test byte 2
 echo "B2 testing ", $data[2]
 for n in 16..23:
-     assert (byte_55_bits[n-16] == testBit(data, n), "B2-direct bit $1 not matching" % $n)
+     assert(byte_55_bits[n-16] == testBit(data, n), "B2-direct bit $1 not matching" % $n)
 data[2] = data[2] xor 0xFF'u8
 
 echo "B2 rev testing ", $data[2]
 for n in 16..23:
-     assert (byte_AA_bits[n-16] == testBit(data, n), "B2-reversed bit $1 not matching" % $n)
+     assert(byte_AA_bits[n-16] == testBit(data, n), "B2-reversed bit $1 not matching" % $n)
 data[2] = data[2] xor 0xFF'u8
 
 #test byte 2 via binBuffer i/face
 echo "B2 iface testing ", $data[2]
 for n in 0..7:
-     assert (byte_55_bits[n] == testBit(data.toBinBuffer[2..2], n), "B2-direct-buff bit $1 not matching" % $n)
+     assert(byte_55_bits[n] == testBit(data.toBinBuffer[2..2], n), "B2-direct-buff bit $1 not matching" % $n)
 data[2] = data[2] xor 0xFF'u8
 
 echo "B2 rev iface testing ", $data[2]
 for n in 0..7:
-     assert (byte_AA_bits[n] == testBit(data.toBinBuffer[2..2], n), "B2-reversed-buff bit $1 not matching" % $n)
+     assert(byte_AA_bits[n] == testBit(data.toBinBuffer[2..2], n), "B2-reversed-buff bit $1 not matching" % $n)
 data[2] = data[2] xor 0xFF'u8
 
 #----
 data.resetBit(8*2 + 1)
 echo "B2 reset testing ", $data[2]
-assert (false == testBit(data.toBinBuffer[2..^1], 1), "B2 bit 1 not reset")
-assert (false == testBit(data, 8*2 + 1), "B2 bit 1 not reset")
+assert(false == testBit(data.toBinBuffer[2..^1], 1), "B2 bit 1 not reset")
+assert(false == testBit(data, 8*2 + 1), "B2 bit 1 not reset")
 
 #---
 data.setBit(8*2 + 1)
 echo "B2 set testing ", $data[2]
-assert (true == testBit(data.toBinBuffer[2..^1], 1), "B2 bit 1 not set")
-assert (true == testBit(data, 8*2 + 1), "B2 bit 1 not set")
+assert(true == testBit(data.toBinBuffer[2..^1], 1), "B2 bit 1 not set")
+assert(true == testBit(data, 8*2 + 1), "B2 bit 1 not set")
 
 
 # tests with new seq returned
@@ -89,7 +90,7 @@ echo "dataMasked(or  seq / seq) = ", $dataMasked
 data.applyWith(mask_odd, `and`)
 echo "dataTrimm (and seq / seq) = ", repr data
 
-dataMasked = mapWith (data.toBinBuffer(), mask.toBinBuffer(), `xor`)
+dataMasked = mapWith(data.toBinBuffer(), mask.toBinBuffer(), `xor`)
 echo "dataMasked(xor buff/buff) = ", $dataMasked
 
 dataMasked = mapWith(data, mask.toBinBuffer(), `xor`)

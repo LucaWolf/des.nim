@@ -1,5 +1,17 @@
 import strutils, bin, des_const, des_type
 
+#--------- DES and DES3 objects -----
+type        
+    desCipherObj = object
+        keyEnc: array[3, subkeys]
+        keyDec: array[3, subkeys]
+        iv: int64
+        restricted: bool # enforces using of 1st key only -- single DES mode
+        keyIsSingle: bool # tells if original key was single DES
+
+    desCipher* = ref desCipherObj
+#---------
+
 #---------
 proc cookey(raw: subkeys, key: var subkeys) = 
     
@@ -147,18 +159,7 @@ proc desfunc(data: var int64, key: var subkeys) =
 
     data = (right.ze64() shl 32) or left.ze64()
 
-#--------- DES and DES3 objects -----
-type
-    desCipherObj = object
-        keyEnc: array[3, subkeys]
-        keyDec: array[3, subkeys]
-        iv: int64
-        restricted: bool # enforces using of 1st key only -- single DES mode
-        keyIsSingle: bool # tells if original key was single DES
-    desCipher* = ref desCipherObj
 
-
-#---------
 proc cryptBlock(cipher: desCipher; src: int64; mode: blockMode; operation: blockOp): int64 =
 
     var

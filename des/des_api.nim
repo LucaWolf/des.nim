@@ -119,7 +119,7 @@ proc setIV*(cipher: desCipher, initVector: openArray[byte]) =
     
     doAssert(initVector.len == desBlockSize, "IV not block")
 
-    cipher.iv = load64BE(initVector)
+    initVector.loadHigh(cipher.iv)
     
 
 #---------
@@ -164,9 +164,11 @@ proc encrypt*(cipher: desCipher; src:openArray[byte]; dst: var openArray[byte]; 
     
     # this excludes the last incomplete chunk if any
     for i in 0 .. <n:
-        v = load64BE(src, pos)
+        
+        src.loadHigh(v, pos)
         d = cipher.cryptBlock(v, mode, opEncrypt)
-        store64BE(d, dst, pos)
+        
+        dst.storeHigh(d, pos)
         inc(pos, desBlockSize)
 
 proc encrypt*(cipher: desCipher; src: string; dst: var openArray[byte]; mode: blockMode = modeCBC) =
@@ -179,9 +181,11 @@ proc encrypt*(cipher: desCipher; src: string; dst: var openArray[byte]; mode: bl
     
     # this excludes the last incomplete chunk if any
     for i in 0 .. <n:
-        v = load64BE(src, pos)
+        
+        src.loadHigh(v, pos)
         d = cipher.cryptBlock(v, mode, opEncrypt)
-        store64BE(d, dst, pos)
+        
+        dst.storeHigh(d, pos)
         inc(pos, desBlockSize)
 
 #---------
@@ -201,9 +205,11 @@ proc decrypt*(cipher: desCipher; src: openArray[byte]; dst: var openArray[byte];
     
     # this excludes the last incomplete chunk if any
     for i in 0 .. <n:
-        v = load64BE(src, pos)
+        
+        src.loadHigh(v, pos)
         d = cipher.cryptBlock(v, mode, opDecrypt)
-        store64BE(d, dst, pos)
+        
+        dst.storeHigh(d, pos)
         inc(pos, desBlockSize)
 
 proc decrypt*(cipher: desCipher; src: string; dst: var openArray[byte]; mode: blockMode = modeCBC) =
@@ -218,9 +224,11 @@ proc decrypt*(cipher: desCipher; src: string; dst: var openArray[byte]; mode: bl
     
     # this excludes the last incomplete chunk if any
     for i in 0 .. <n:
-        v = load64BE(src, pos)
+        
+        src.loadHigh(v, pos)
         d = cipher.cryptBlock(v, mode, opDecrypt)
-        store64BE(d, dst, pos)
+        
+        dst.storeHigh(d, pos)
         inc(pos, desBlockSize)
 
 
@@ -251,7 +259,8 @@ proc mac*(cipher: desCipher; src :openArray[byte]; dst: var desBlock; version: m
             dec(n)
 
     for i in 0 .. <n:
-        s = load64BE(src, pos)
+        
+        src.loadHigh(s, pos)
         d = cipher.cryptBlock(s, modeCBC, opEncrypt)
         inc(pos, desBlockSize)
     
@@ -259,16 +268,19 @@ proc mac*(cipher: desCipher; src :openArray[byte]; dst: var desBlock; version: m
     cipher.restrict(false)
     
     if hasPadding:
-        s = load64BE(padBlock, 0)
+        
+        padBlock.loadHigh(s, 0)
         d = cipher.cryptBlock(s, modeCBC, opEncrypt)
     else:
         if version == macX9_19:
             # full blocks and last one needs 3DES
             pos = src.len - desBlocksize
-            s = load64BE(src, pos)
+            
+            src.loadHigh(s, pos)
             d = cipher.cryptBlock(s, modeCBC, opEncrypt)
     
-    store64BE(d, dst)
+    
+    dst.storeHigh(d)
 
 proc mac*(cipher: desCipher; src :string; dst: var desBlock; version: macVersion; pad: blockPadding, enforceFullBlockPadding: bool = false) =
     doAssert(desBlockSize <= dst.len, "MAC holder too short")
@@ -287,7 +299,8 @@ proc mac*(cipher: desCipher; src :string; dst: var desBlock; version: macVersion
             dec(n)
 
     for i in 0 .. <n:
-        s = load64BE(src, pos)
+        
+        src.loadHigh(s, pos)
         d = cipher.cryptBlock(s, modeCBC, opEncrypt)
         inc(pos, desBlockSize)
     
@@ -295,13 +308,16 @@ proc mac*(cipher: desCipher; src :string; dst: var desBlock; version: macVersion
     cipher.restrict(false)
     
     if hasPadding:
-        s = load64BE(padBlock, 0)
+        
+        padBlock.loadHigh(s, 0)
         d = cipher.cryptBlock(s, modeCBC, opEncrypt)
     else:
         if version == macX9_19:
             # full blocks and last one needs 3DES
             pos = src.len - desBlocksize
-            s = load64BE(src, pos)
+            
+            src.loadHigh(s, pos)
             d = cipher.cryptBlock(s, modeCBC, opEncrypt)
     
-    store64BE(d, dst)
+    
+    dst.storeHigh(d)

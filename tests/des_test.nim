@@ -1,5 +1,5 @@
 import strutils, sequtils
-import ../des_api
+import ../des/des_api
 
 proc toString(buff: seq[byte]): string =
     result = newString(buff.len)

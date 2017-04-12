@@ -1,5 +1,5 @@
 import times, strutils, sequtils
-import ../des_api
+import ../des/des_api
 
 
 proc main() =

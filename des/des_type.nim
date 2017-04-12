@@ -17,5 +17,4 @@ type
     subkeys* = array[32, int32]
     desBlock* = array[desBlockSize, byte]
     desKey* = array[desBlockSize, byte]
-
     

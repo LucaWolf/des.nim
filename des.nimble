@@ -1,11 +1,14 @@
-[Package]
-name          = "des"
-version       = "0.0.2"
+# Package
+
+version       = "0.0.3"
 author        = "LucaWolf <LucaWolf@users.noreply.github.com>"
 description   = "3DES native library for Nim"
 license       = "MIT"
 
-bin = tests/des_test
+skipDirs = @["tests"]
+bin = @["test/des_test"]
 
-[Deps]
-Requires: "nim >= 0.14.2"
+# Dependencies
+
+requires "nim >= 0.16.0"
+
