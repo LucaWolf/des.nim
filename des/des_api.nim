@@ -3,38 +3,9 @@ import bin, des_const, des_type
 export bin, des_const, des_type
 
 include des_core
-    
-proc lastBlock*(src: string; dst: var desBlock; pad: blockPadding; extraBlock: bool): bool =
-
-    var n = src.len and <desBlockSize # i.e. mod 8
-    var padLen = desBlockSize - n
-
-    if padLen == desBlockSize and extraBlock == false:
-        padLen = 0
-
-    if padLen != 0:
-        result = true
-        dst.applyWith(dst, `xor`) # content reset
-        
-        if padLen != 8:
-            dst[0..<n] = map(src[^n..^1], proc(c: char): byte = ord(c))
-
-        # fill in the rest of bytes to the desired scheme
-        case pad
-            of padPKCS5:
-                for i in (desBlockSize - padLen) .. <desBlockSize:
-                    dst[i] = padLen.byte
-            of padX923:
-                dst[^1] = padLen.byte
-            of padISO7816:
-                dst[^padLen] = 0x80'u8
-            else:
-                discard # leave zeros as if padZero
-    else:
-        result = false
 
 #---
-proc lastBlock*(src: openArray[byte]; dst: var desBlock; pad: blockPadding; extraBlock: bool): bool =
+template lastBlock*[T](src: T; dst: var desBlock; pad: blockPadding; extraBlock: bool): bool =
     ## Formats the *dst* as the paddded last chunk of *src* if deemed too short. 
     ## The *extraBlock* could enforce a full desBlockSize padding but only when the input
     ## is already multiple of desBlocksize bytes.
@@ -43,6 +14,7 @@ proc lastBlock*(src: openArray[byte]; dst: var desBlock; pad: blockPadding; extr
 
     var n = src.len and <desBlockSize # i.e. mod 8
     var padLen = desBlockSize - n
+    var result: bool
 
     if padLen == desBlockSize and extraBlock == false:
         padLen = 0
@@ -52,8 +24,9 @@ proc lastBlock*(src: openArray[byte]; dst: var desBlock; pad: blockPadding; extr
         dst.applyWith(dst, `xor`) # content reset
         
         if padLen != 8:
+            #dst[0..<n] = map(src[^n..^1], proc(c: char): byte = ord(c))
             src.copyLastTo(n, dst)
-        
+
         # fill in the rest of bytes to the desired scheme
         case pad
             of padPKCS5:
@@ -67,6 +40,9 @@ proc lastBlock*(src: openArray[byte]; dst: var desBlock; pad: blockPadding; extr
                 discard # leave zeros as if padZero
     else:
         result = false
+
+    result
+    
 
 #---------
 proc newDesCipher*(initialKey: openArray[byte]): desCipher = 
@@ -141,7 +117,7 @@ proc restrict*(cipher: desCipher, useSingleDes: bool = true) =
         cipher.restricted = useSingleDes
 
 #---------
-proc encrypt*(cipher: desCipher; src:openArray[byte]; dst: var openArray[byte]; mode: blockMode = modeCBC) =
+proc encrypt*(cipher: desCipher; src: openarray[byte]; dst: var openArray[byte]; mode: blockMode = modeCBC) =
     ## Encrypts the *src* input data in the *mode* chaining mode: currently only ECB and CBC
     ## are supported. The input is only processed for `n` bytes as multiple of *desBlockSize*. 
     ## The rest is ignored but you could use the *lastBlock* to hadle the input remainder.
@@ -172,24 +148,12 @@ proc encrypt*(cipher: desCipher; src:openArray[byte]; dst: var openArray[byte]; 
         inc(pos, desBlockSize)
 
 proc encrypt*(cipher: desCipher; src: string; dst: var openArray[byte]; mode: blockMode = modeCBC) =
-    var
-        pos = 0
-        n = src.len div desBlocksize
-        v, d: int64
-
-    doAssert(n*desBlockSize <= dst.len, "Encrypt holder too short")
-    
-    # this excludes the last incomplete chunk if any
-    for i in 0 .. <n:
-        
-        src.loadHigh(v, pos)
-        d = cipher.cryptBlock(v, mode, opEncrypt)
-        
-        dst.storeHigh(d, pos)
-        inc(pos, desBlockSize)
+    var s = newSeq[byte](src.len)
+    src.copyTo(s)
+    encrypt(cipher, s, dst, mode)
 
 #---------
-proc decrypt*(cipher: desCipher; src: openArray[byte]; dst: var openArray[byte]; mode: blockMode = modeCBC) =
+proc decrypt*(cipher: desCipher; src: openarray[byte]; dst: var openArray[byte]; mode: blockMode = modeCBC) =
     ## Decrypts the input data in the *mode* chaining mode: currently only ECB and CBC
     ## are supported. The *src* input must have the length as multiple of *desBlockSize* bytes
     ## The *dst* output sequence must have at least the same length as the input.
@@ -213,27 +177,12 @@ proc decrypt*(cipher: desCipher; src: openArray[byte]; dst: var openArray[byte];
         inc(pos, desBlockSize)
 
 proc decrypt*(cipher: desCipher; src: string; dst: var openArray[byte]; mode: blockMode = modeCBC) =
-    var
-        pos = 0
-        n = src.len div desBlocksize
-        v, d: int64
-
-    # mod 8 is: val and 0x07
-    doAssert((src.len and <desBlockSize) == 0, "Input incomplete block")
-    doAssert(src.len <= dst.len, "Decrypt holder too short")
-    
-    # this excludes the last incomplete chunk if any
-    for i in 0 .. <n:
-        
-        src.loadHigh(v, pos)
-        d = cipher.cryptBlock(v, mode, opDecrypt)
-        
-        dst.storeHigh(d, pos)
-        inc(pos, desBlockSize)
-
+    var s = newSeq[byte](src.len)
+    src.copyTo(s)
+    decrypt(cipher, s, dst, mode)
 
 #------- MAC is always CBC
-proc mac*(cipher: desCipher; src :openArray[byte]; dst: var desBlock; version: macVersion; pad: blockPadding, enforceFullBlockPadding: bool = false) =
+proc mac*(cipher: desCipher; src: openarray[byte]; dst: var desBlock; version: macVersion; pad: blockPadding, enforceFullBlockPadding: bool = false) =
     ## MAC according to the padding and the X9 *version*. Input *src* can be
     ## an incomplete block (non multiple of 8 bytes), in which case the padding scheme applies
     ## Enforcing a full block padding (if input not complete) is also possible via *enforceFullBlockPadding*
@@ -282,42 +231,7 @@ proc mac*(cipher: desCipher; src :openArray[byte]; dst: var desBlock; version: m
     
     dst.storeHigh(d)
 
-proc mac*(cipher: desCipher; src :string; dst: var desBlock; version: macVersion; pad: blockPadding, enforceFullBlockPadding: bool = false) =
-    doAssert(desBlockSize <= dst.len, "MAC holder too short")
-    
-    var
-        n = src.len div desBlocksize
-        padBlock: desBlock
-        pos = 0
-        s, d: int64
-
-    let hasPadding = src.lastBlock(padBlock, pad, enforceFullBlockPadding)
-    
-    if version == macX9_19:
-        cipher.restrict(true)
-        if  hasPadding == false:
-            dec(n)
-
-    for i in 0 .. <n:
-        
-        src.loadHigh(s, pos)
-        d = cipher.cryptBlock(s, modeCBC, opEncrypt)
-        inc(pos, desBlockSize)
-    
-    # last block and future operations reset to full key
-    cipher.restrict(false)
-    
-    if hasPadding:
-        
-        padBlock.loadHigh(s, 0)
-        d = cipher.cryptBlock(s, modeCBC, opEncrypt)
-    else:
-        if version == macX9_19:
-            # full blocks and last one needs 3DES
-            pos = src.len - desBlocksize
-            
-            src.loadHigh(s, pos)
-            d = cipher.cryptBlock(s, modeCBC, opEncrypt)
-    
-    
-    dst.storeHigh(d)
+proc mac*(cipher: desCipher; src: string; dst: var desBlock; version: macVersion; pad: blockPadding, enforceFullBlockPadding: bool = false) =
+    var s = newSeq[byte](src.len)
+    src.copyTo(s)
+    mac(cipher, s, dst, version, pad, enforceFullBlockPadding)
