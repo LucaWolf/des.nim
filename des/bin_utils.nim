@@ -9,14 +9,6 @@ converter iToU8(x: int): uint8 =
 #---
 """
 
-converter toByte*(c: char): byte =
-    result = ord(c).byte
-
-converter toChar*(b: byte): char =
-    result = char(b)
-
-
-
 #-----------------------
 template seqOf*[T,N] (buff: openarray[T]): seq[N] =
     ## Script to help with declaration of new sequences of type N based on an array of 

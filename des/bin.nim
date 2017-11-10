@@ -14,6 +14,28 @@ proc ror*[T](x: T, y: int8): T =
     result = (x shr (y and <n)) or (x shl (n - (y and <n)))
 
 
+# keep it local for now
+proc `<--`[D,S](d: var D, s: S) =
+    ## Assigns a value of type 'S' to a value of type 'D'
+    ## D <-> S are usually char <-> byte/int; any other types will 
+    ## use the plain '=' assignment (so it may fail to compile).
+    ## All this to avoid char <-> byte converters which may have global side effects
+    
+    # prioritise clear cut cases
+    when (S, D) is (char, byte):
+        d = ord(s).byte
+    elif (S, D) is (byte, char):
+        d = char(s)
+    # the rest of the integer scope
+    elif (S, D) is (SomeInteger, char):
+        d = char(toU8(s.int)) # expect truncations
+    elif (S, D) is (char, SomeInteger):
+        d = ord(s).D
+    # fallback to generic assignment, possible compilation errors or exceptions
+    else:
+        d = s
+
+
 #-----------------
 # this allows mixing string and integers parametrs for mapWith, applyWith
 #-----------------
@@ -88,7 +110,7 @@ template copyTo*(src: typed; frame: Slice[int]; dst: typed; at:int = 0) =
     var n = (frame.b - frame.a).clamp(0, dst.len - at)
 
     for i in 0 .. <n:
-        dst[at + i] = src[frame.a + i]
+        dst[at + i] <-- src[frame.a + i]
 
 
 template copyTo*(src: typed; dst: typed; at:int = 0) =
@@ -130,14 +152,15 @@ proc `[]`*(buff: binBuffer, n: int): var byte =
     if n > <buff.len:
         raise newException(IndexError, "Invalid index: " & $n)
 
+    # TODO: make '<--' return a ref?
     result = cast[ptr byte](addr buff.data[buff.view.a + n])[]
+    
 
-
-proc `[]=`*(buff: binBuffer, n: int, val: byte) =
+proc `[]=`*[T](buff: binBuffer, n: int, val: T) =
     if n  > <buff.len:
         raise newException(IndexError, "Invalid index: " & $n)
 
-    cast[ptr byte](addr buff.data[buff.view.a + n])[] = val
+    buff.data[buff.view.a + n] <-- val  
 
 
 proc `[]`*(buff: binBuffer, s: Slice[int]): binBuffer =
