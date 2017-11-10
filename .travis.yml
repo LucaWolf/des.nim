@@ -3,7 +3,8 @@ language: c
 env:
   # Build and test against the master and devel branches of Nim
   - BRANCH=master
-  - BRANCH=devel
+  # this never worked... give-up on DEVEL:
+  # - BRANCH=devel
 compiler:
   # Build and test using both gcc and clang
   - gcc

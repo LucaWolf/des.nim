@@ -1,14 +1,5 @@
 import strutils, sequtils
 
-discard """
-#--- add here required converters
-converter i64ToU32*(x: int64): uint32 =
-    result = x.uint32
-converter iToU8(x: int): uint8 =
-    result = x.uint8
-#---
-"""
-
 #-----------------------
 template seqOf*[T,N] (buff: openarray[T]): seq[N] =
     ## Script to help with declaration of new sequences of type N based on an array of 
@@ -78,4 +69,3 @@ proc fromHex*(s: string): seq[byte] =
             lsn = result[i] and 0x0F'u8
             result[i] = (result[i] shr 4) or (msn shl 4)
             msn = lsn
-
