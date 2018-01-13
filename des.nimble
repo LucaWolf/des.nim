@@ -6,7 +6,7 @@ description   = "3DES native library for Nim"
 license       = "MIT"
 
 skipDirs = @["tests"]
-bin = @["tests/des_test"]
+#bin = @["tests/des_test"]
 
 # Dependencies
 
