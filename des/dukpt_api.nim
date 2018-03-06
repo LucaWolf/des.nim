@@ -41,7 +41,7 @@ proc pekBlackBox(currKey: var dukptKey, currKSN: dukptKsn) =
     cipher = newDesCipher(keyLeft)
     cipher.encrypt(msg, nextKeyLeft)
     nextKeyLeft.applyWith(keyRight, `xor`) 
-    nextKeyLeft.copyTo(currKey) #apply back to currKey[0..<desBlockSize]
+    nextKeyLeft.copyTo(currKey) #apply back to currKey[0..desBlockSize.pred]
 
 #----
 proc createPEK*(ipek, ksn: openArray[byte]): dukptKey =
@@ -64,7 +64,7 @@ proc createPEK*(ipek, ksn: openArray[byte]): dukptKey =
     #  ksn(3) = 9876543210E0000B (B = A|0001),
     # ===============================================
 
-    for n in (8*ksnSize - ksnCounterBits) .. <(8*ksnSize):
+    for n in (8*ksnSize - ksnCounterBits) .. (8*ksnSize).pred:
         if testBit(ksn, n):
             setBit(ksnAccumulator, n)
             result.pekBlackBox(ksnAccumulator)

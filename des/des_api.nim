@@ -12,7 +12,7 @@ template lastBlock*[T](src: T; dst: var desBlock; pad: blockPadding; extraBlock:
     ##
     ## A blank sequence and false is returned if padding is not required
 
-    var n = src.len and <desBlockSize # i.e. mod 8
+    var n = src.len and desBlockSize.pred # i.e. mod 8
     var padLen = desBlockSize - n
     var result: bool
 
@@ -24,13 +24,12 @@ template lastBlock*[T](src: T; dst: var desBlock; pad: blockPadding; extraBlock:
         dst.applyWith(dst, `xor`) # content reset
         
         if padLen != 8:
-            #dst[0..<n] = map(src[^n..^1], proc(c: char): byte = ord(c))
             src.copyLastTo(n, dst)
 
         # fill in the rest of bytes to the desired scheme
         case pad
             of padPKCS5:
-                for i in (desBlockSize - padLen) .. <desBlockSize:
+                for i in (desBlockSize - padLen) .. desBlockSize.pred:
                     dst[i] = padLen.byte
             of padX923:
                 dst[^1] = padLen.byte
@@ -139,7 +138,7 @@ proc encrypt*(cipher: desCipher; src: openarray[byte]; dst: var openArray[byte];
     doAssert(n*desBlockSize <= dst.len, "Encrypt holder too short")
     
     # this excludes the last incomplete chunk if any
-    for i in 0 .. <n:
+    for i in 0 .. n.pred:
         
         src.loadHigh(v, pos)
         d = cipher.cryptBlock(v, mode, opEncrypt)
@@ -164,11 +163,11 @@ proc decrypt*(cipher: desCipher; src: openarray[byte]; dst: var openArray[byte];
         v, d: int64
 
     # mod 8 is: val and 0x07
-    doAssert((src.len and <desBlockSize) == 0, "Input incomplete block")
+    doAssert((src.len and desBlockSize.pred) == 0, "Input incomplete block")
     doAssert(src.len <= dst.len, "Decrypt holder too short")
     
     # this excludes the last incomplete chunk if any
-    for i in 0 .. <n:
+    for i in 0 .. n.pred:
         
         src.loadHigh(v, pos)
         d = cipher.cryptBlock(v, mode, opDecrypt)
@@ -207,7 +206,7 @@ proc mac*(cipher: desCipher; src: openarray[byte]; dst: var desBlock; version: m
         if  hasPadding == false:
             dec(n)
 
-    for i in 0 .. <n:
+    for i in 0 .. n.pred:
         
         src.loadHigh(s, pos)
         d = cipher.cryptBlock(s, modeCBC, opEncrypt)

@@ -15,28 +15,36 @@ proc len*(buff: binBuffer): int =
 
 proc setlen*(buff: var binBuffer, n: int) =
     if n > 0:
-        buff.view.b = (buff.view.a + <n).clamp(0, <buff.size)
+        buff.view.b = (buff.view.a + n.pred).clamp(0, buff.size.pred)
 
 proc resetlen*(buff: var binBuffer) =
-    buff.view = 0 .. <buff.size
+    buff.view = 0 .. buff.size.pred
 
 
 proc toBinBuffer*[T](data: openArray[T]): binBuffer =
     new(result)
     result.data = cast[cstring](unsafeAddr data[0])
     result.size = data.len * T.sizeof
-    result.view = 0 .. <result.size
+    result.view = 0 .. result.size.pred
     
 
-proc `[]`*(buff: binBuffer, n: int): var byte =
-    if n > <buff.len:
+proc `[]`*(buff: binBuffer, i: int|BackwardsIndex): var byte =
+    var n: int
+    when i is int: n = i
+    else: n = buff.len - i.int
+
+    if n > buff.len.pred:
         raise newException(IndexError, "Invalid index: " & $n)
 
     result = cast[ptr byte](addr buff.data[buff.view.a + n])[]
     
  
-proc `[]=`*[T](buff: binBuffer, n: int, val: T) =
-    if n  > <buff.len:
+proc `[]=`*[T](buff: binBuffer, i: int|BackwardsIndex, val: T) =
+    var n: int
+    when i is int: n = i
+    else: n = buff.len - i.int
+        
+    if n  > buff.len.pred:
         raise newException(IndexError, "Invalid index: " & $n)
 
     when T is char:
@@ -54,11 +62,17 @@ proc `[]`*(buff: binBuffer, s: Slice[int]): binBuffer =
     shallowCopy(result[], buff[])
 
     # allow expanding to original size
-    result.view.b = (buff.view.a + s.b).clamp(0, <buff.size)
-    result.view.a = (buff.view.a + s.a).clamp(0, <buff.size)
+    result.view.b = (buff.view.a + s.b).clamp(0, buff.size.pred)
+    result.view.a = (buff.view.a + s.a).clamp(0, buff.size.pred)
 
     if result.view.a > result.view.b:
         swap(result.view.a, result.view.b)
+
+
+proc `[]`*(buff: binBuffer, s: HSlice[int, BackwardsIndex]): binBuffer =
+    var ss = s.a .. buff.len - s.b.int
+    echo "got binbuffer sliced at [$#, $#]" % [$(ss.a), $(ss.b)]
+    return `[]`(buff, ss)
 
 
 iterator items*(buff: binBuffer): byte =

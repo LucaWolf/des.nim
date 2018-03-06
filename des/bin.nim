@@ -6,12 +6,12 @@ const maskbit* = [0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01]
 #-----------------
 proc rol*[T](x: T, y: int8): T =
     let n = 8 * sizeof(x).T # how many bits in x
-    result = (x shl (y and <n)) or (x shr (n - (y and <n)))
+    result = (x shl (y and n.pred)) or (x shr (n - (y and n.pred)))
 
 #-----------------
 proc ror*[T](x: T, y: int8): T =
     let n = 8 * sizeof(x).T # how many bits in x
-    result = (x shr (y and <n)) or (x shl (n - (y and <n)))
+    result = (x shr (y and n.pred)) or (x shl (n - (y and n.pred)))
 
 proc `<--`*[D,S](d: var D, s: S) =
     ## Assigns a value of type 'S' to a value of type 'D'
@@ -88,7 +88,7 @@ template mapWith*(buff, mask: typed; action: untyped): untyped =
     for val in items(buff):
         result[i] = action(val, mask[j])
         inc(i)
-        if j == <n: j = 0 else: inc(j) 
+        if j == n.pred: j = 0 else: inc(j) 
     result
 
 # in-place operation
@@ -99,14 +99,14 @@ template applyWith*(buff, mask: typed, action: untyped): typed =
 
     for val in mitems(buff):
         val = action(val, mask[j])
-        if j == <n: j = 0 else: inc(j) 
+        if j == n.pred: j = 0 else: inc(j) 
 
 #-----------------------
 # for easy of access, the slice holds the length (.b points to next element)
 template copyTo*(src: typed; frame: Slice[int]; dst: typed; at:int = 0) =
     var n = (frame.b - frame.a).clamp(0, dst.len - at)
 
-    for i in 0 .. <n:
+    for i in 0 .. n.pred:
         dst[at + i] <-- src[frame.a + i]
 
 

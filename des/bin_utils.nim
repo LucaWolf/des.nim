@@ -65,7 +65,7 @@ proc fromHex*(s: string): seq[byte] =
     if (j and 1) == 1:
         result.add(lsn shl 4)
         msn = 0'u8
-        for i in 0 .. <result.len:
+        for i in 0 .. result.len.pred:
             lsn = result[i] and 0x0F'u8
             result[i] = (result[i] shr 4) or (msn shl 4)
             msn = lsn
