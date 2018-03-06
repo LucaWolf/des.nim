@@ -29,7 +29,7 @@ echo b1.toHex(true)
 b2 = txt.toBinBuffer()[2..^1]
 echo "Txt $1 has len=$2, slice b2 has len=$3" % [txt, $txt.len, $b2.len]
 
-b2[<b2.len] = ord('E')
+b2[^1] = ord('E')
 b2[0] = 'A'
 b2[1] = 0x39
 echo "Modified b2=", txt

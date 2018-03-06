@@ -29,7 +29,7 @@ proc main() =
         dataEnc = newSeq[byte]((dataClear.len div desBlockSize) * desBlockSize)
     
 
-    for i in 0 .. < numIter:
+    for i in 0 .. numIter.pred:
         singleDes.encrypt(dataClear, dataEnc, mode)
 
         if hasPadding:
