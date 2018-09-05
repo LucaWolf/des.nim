@@ -6,7 +6,7 @@ des.nim
 About
 -----
 This is a Nim port of a C-based DES implementation. It implements single, double and triple DES operations with support for basic data padding. 
-DUKPT simple key management (PEK is cached, no securely hold future keys array) with encrypt/decrypt and MAC operations also supported.
+DUKPT simple key management (PEK is cached, not holding the future keys array) with encrypt/decrypt and MAC operations also supported.
 
 Examples
 --------

@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.0.5"
+version       = "0.0.6"
 author        = "LucaWolf <LucaWolf@users.noreply.github.com>"
 description   = "3DES native library for Nim"
 license       = "MIT"

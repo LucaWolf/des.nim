@@ -116,7 +116,7 @@ proc restrict*(cipher: desCipher, useSingleDes: bool = true) =
         cipher.restricted = useSingleDes
 
 #---------
-proc encrypt*(cipher: desCipher; src: openarray[byte]; dst: var openArray[byte]; mode: blockMode = modeCBC) =
+proc encrypt*[T](cipher: desCipher; src: T; dst: var openArray[byte]; mode: blockMode = modeCBC) =
     ## Encrypts the *src* input data in the *mode* chaining mode: currently only ECB and CBC
     ## are supported. The input is only processed for `n` bytes as multiple of *desBlockSize*. 
     ## The rest is ignored but you could use the *lastBlock* to hadle the input remainder.
@@ -146,13 +146,9 @@ proc encrypt*(cipher: desCipher; src: openarray[byte]; dst: var openArray[byte];
         dst.storeHigh(d, pos)
         inc(pos, desBlockSize)
 
-proc encrypt*(cipher: desCipher; src: string; dst: var openArray[byte]; mode: blockMode = modeCBC) =
-    var s = newSeq[byte](src.len)
-    src.copyTo(s)
-    encrypt(cipher, s, dst, mode)
 
 #---------
-proc decrypt*(cipher: desCipher; src: openarray[byte]; dst: var openArray[byte]; mode: blockMode = modeCBC) =
+proc decrypt*[T](cipher: desCipher; src: T; dst: var openArray[byte]; mode: blockMode = modeCBC) =
     ## Decrypts the input data in the *mode* chaining mode: currently only ECB and CBC
     ## are supported. The *src* input must have the length as multiple of *desBlockSize* bytes
     ## The *dst* output sequence must have at least the same length as the input.
@@ -175,13 +171,9 @@ proc decrypt*(cipher: desCipher; src: openarray[byte]; dst: var openArray[byte];
         dst.storeHigh(d, pos)
         inc(pos, desBlockSize)
 
-proc decrypt*(cipher: desCipher; src: string; dst: var openArray[byte]; mode: blockMode = modeCBC) =
-    var s = newSeq[byte](src.len)
-    src.copyTo(s)
-    decrypt(cipher, s, dst, mode)
 
 #------- MAC is always CBC
-proc mac*(cipher: desCipher; src: openarray[byte]; dst: var desBlock; version: macVersion; pad: blockPadding, enforceFullBlockPadding: bool = false) =
+proc mac*[T](cipher: desCipher; src: T; dst: var desBlock; version: macVersion; pad: blockPadding, enforceFullBlockPadding: bool = false) =
     ## MAC according to the padding and the X9 *version*. Input *src* can be
     ## an incomplete block (non multiple of 8 bytes), in which case the padding scheme applies
     ## Enforcing a full block padding (if input not complete) is also possible via *enforceFullBlockPadding*
@@ -206,8 +198,8 @@ proc mac*(cipher: desCipher; src: openarray[byte]; dst: var desBlock; version: m
         if  hasPadding == false:
             dec(n)
 
-    for i in 0 .. n.pred:
-        
+    for i in 0 .. n.pred:    
+
         src.loadHigh(s, pos)
         d = cipher.cryptBlock(s, modeCBC, opEncrypt)
         inc(pos, desBlockSize)
@@ -216,7 +208,7 @@ proc mac*(cipher: desCipher; src: openarray[byte]; dst: var desBlock; version: m
     cipher.restrict(false)
     
     if hasPadding:
-        
+
         padBlock.loadHigh(s, 0)
         d = cipher.cryptBlock(s, modeCBC, opEncrypt)
     else:
@@ -230,7 +222,4 @@ proc mac*(cipher: desCipher; src: openarray[byte]; dst: var desBlock; version: m
     
     dst.storeHigh(d)
 
-proc mac*(cipher: desCipher; src: string; dst: var desBlock; version: macVersion; pad: blockPadding, enforceFullBlockPadding: bool = false) =
-    var s = newSeq[byte](src.len)
-    src.copyTo(s)
-    mac(cipher, s, dst, version, pad, enforceFullBlockPadding)
+    

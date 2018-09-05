@@ -21,12 +21,16 @@ proc main() =
         hasPadding = dataClear.lastBlock(dataLast, padding, enforceFullBlockPadding)
 
     echo "Clear data is:  ", toHex(dataClear, false)
+    #echo "Clear data is:  ", dataClear
     
     #---------------    
     echo "=== DES encrypt ==="
     var
         singleDes = newDesCipher(testKey)
         dataEnc = newSeq[byte]((dataClear.len div desBlockSize) * desBlockSize)
+        
+    singleDes.encrypt(dataClear, dataEnc, mode)
+    echo "Enc data is:  ", toHex(dataEnc, false)
     
 
     for i in 0 .. numIter.pred:
