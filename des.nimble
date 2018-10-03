@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.0.6"
+version       = "0.0.7"
 author        = "LucaWolf <LucaWolf@users.noreply.github.com>"
 description   = "3DES native library for Nim"
 license       = "MIT"
@@ -10,5 +10,5 @@ skipDirs = @["tests"]
 
 # Dependencies
 
-requires "nim >= 0.18.0"
+requires "nim >= 0.19.0"
 

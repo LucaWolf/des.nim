@@ -39,7 +39,7 @@ proc cookey(raw: subkeys, key: var subkeys) =
         
 
 #---------
-proc initKeys(keyin: openArray[byte], edf: blockOp, keyout: var subkeys) = 
+proc initKeys(keyin: desKey, edf: blockOp, keyout: var subkeys) = 
     var
         s,m,n: int
         kn: subkeys
@@ -76,8 +76,41 @@ proc initKeys(keyin: openArray[byte], edf: blockOp, keyout: var subkeys) =
 
     cookey(kn, keyout)
     
+
+template desround(cur_round: int, key: subkeys): untyped = 
+    var w1, w2: int32
+
+    w1 = ror(right, 4) xor key[4*cur_round]
+    w2 = right xor key[4*cur_round + 1]
+
+    left = left xor (SP7[w1  and 0x3f] xor
+            SP5[(w1 shr  8) and 0x3f] xor
+            SP3[(w1 shr 16) and 0x3f] xor
+            SP1[(w1 shr 24) and 0x3f]).toU32()
+    
+    left = left xor (SP8[w2  and 0x3f] xor
+            SP6[(w2 shr  8) and 0x3f] xor
+            SP4[(w2 shr 16) and 0x3f] xor
+            SP2[(w2 shr 24) and 0x3f]).toU32()
+
+    #
+    w1 = ror(left, 4) xor key[4*cur_round + 2]
+    w2  = left xor key[4*cur_round + 3]
+
+    right = right xor (SP7[w1 and 0x3f] xor
+            SP5[(w1 shr  8) and 0x3f]  xor
+            SP3[(w1 shr 16) and 0x3f]  xor
+            SP1[(w1 shr 24) and 0x3f]).toU32()
+    
+    
+    right = right xor (SP8[w2 and 0x3f] xor
+            SP6[(w2 shr  8) and 0x3f]  xor
+            SP4[(w2 shr 16) and 0x3f]  xor
+            SP2[(w2 shr 24) and 0x3f]).toU32()
+
+    
 #---------    
-proc desfunc(data: var int64, key: var subkeys) =
+proc desfunc(data: var int64, key: subkeys) =
     var
         work, right, left: int32
 
@@ -107,35 +140,14 @@ proc desfunc(data: var int64, key: var subkeys) =
     right = right xor work
     left = rol(left, 1)
 
-    for cur_round in 0..7:
-        let k1 = key[4*cur_round]
-        let k2 = key[4*cur_round + 1]
-        let k3 = key[4*cur_round + 2]
-        let k4 = key[4*cur_round + 3]
-        
-        work  = ror(right, 4) xor k1
-        left = left xor (SP7[work  and 0x3f] xor
-                SP5[(work shr  8) and 0x3f] xor
-                SP3[(work shr 16) and 0x3f] xor
-                SP1[(work shr 24) and 0x3f]).toU32()
-        
-        work  = right xor k2
-        left = left xor (SP8[work  and 0x3f] xor
-                SP6[(work shr  8) and 0x3f] xor
-                SP4[(work shr 16) and 0x3f] xor
-                SP2[(work shr 24) and 0x3f]).toU32()
-
-        work = ror(left, 4) xor k3
-        right = right xor (SP7[work and 0x3f] xor
-                SP5[(work shr  8) and 0x3f]  xor
-                SP3[(work shr 16) and 0x3f]  xor
-                SP1[(work shr 24) and 0x3f]).toU32()
-        
-        work  = left xor k4
-        right = right xor (SP8[work and 0x3f] xor
-                SP6[(work shr  8) and 0x3f]  xor
-                SP4[(work shr 16) and 0x3f]  xor
-                SP2[(work shr 24) and 0x3f]).toU32()
+    desround(0, key)
+    desround(1, key)
+    desround(2, key)
+    desround(3, key)
+    desround(4, key)
+    desround(5, key)
+    desround(6, key)
+    desround(7, key)
 
     right = ror(right, 1)
     work = (left xor right) and 0xaaaaaaaa.toU32()

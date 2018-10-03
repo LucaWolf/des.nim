@@ -132,16 +132,19 @@ proc selectKey*(cipher: var dukptCipher, variant: keyVariant) =
 
 
 #---
-proc newDukptCipher*(bdk, ksn: openArray[byte]): dukptCipher =
+proc newDukptCipher*(key, ksn: openArray[byte], isBDK: bool = true): dukptCipher =
 
-    doAssert(bdk.len == 2 * desBlockSize, "BDK not desBlockSize multiple:" & $bdk.len)
+    doAssert(key.len == 2 * desBlockSize, "DUKPT Key not desBlockSize multiple:" & $key.len)
     doAssert(ksn.len == ksnSize, "KSN wrong size:" & $ksn.len)
         
     new(result)
     
-    result.pek = createPEK(createIPEK(bdk, ksn), ksn)
+    if isBDK:
+        result.pek = createPEK(createIPEK(key, ksn), ksn) # derive IPEK from BDK=key
+    else:
+        result.pek = createPEK(key, ksn) # IPEK=key as provided
     result.selectKey(kvData)
-    
+
 #---
 template encrypt*(cipher: dukptCipher; src, dst: typed; mode: blockMode = modeCBC) =
     cipher.crypter.encrypt(src, dst, mode)
