@@ -21,7 +21,7 @@ while b1.len > 8:
     b1 = b1[8..^1]
 
 b2 = lastChunk.toBinBuffer()
-b2.copyTo(b1)
+copyTo(b2, b1)
 echo b2.toHex(true)
 echo b1.toHex(true)
 
@@ -90,7 +90,7 @@ echo "dataMasked(xor seq / seq) = ", $dataMasked
 dataMasked = mapWith(data, mask, `or`)
 echo "dataMasked(or  seq / seq) = ", $dataMasked
 
-data.applyWith(mask_odd, `and`)
+applyWith(data, mask_odd, `and`)
 echo "dataTrimm (and seq / seq) = ", repr data
 
 dataMasked = mapWith(data.toBinBuffer(), mask.toBinBuffer(), `xor`)

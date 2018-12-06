@@ -21,10 +21,10 @@ template lastBlock*[T](src: T; dst: var desBlock; pad: blockPadding; extraBlock:
 
     if padLen != 0:
         result = true
-        dst.applyWith(dst, `xor`) # content reset
+        applyWith(dst, dst, `xor`) # content reset
         
         if padLen != 8:
-            src.copyLastTo(n, dst)
+            copyLastTo(src, n, dst)
 
         # fill in the rest of bytes to the desired scheme
         case pad
@@ -52,14 +52,14 @@ proc newDesCipher*(initialKey: openArray[byte]): desCipher =
 
     case initialKey.len
     of desBlockSize:
-        initialKey.copyTo(k1)
+        copyTo(initialKey, k1)
     of 2 * desBlockSize:
-        initialKey.copyTo(k1)
-        initialKey.copyTo(desBlockSize .. 2*desBlockSize, k2)
+        copyTo(initialKey, k1)
+        copyTo(initialKey, desBlockSize .. 2*desBlockSize, k2)
     of 3 * desBlockSize:
-        initialKey.copyTo(k1)
-        initialKey.copyTo(desBlockSize .. 2*desBlockSize, k2)
-        initialKey.copyTo(2*desBlockSize .. 3*desBlockSize, k3)
+        copyTo(initialKey, k1)
+        copyTo(initialKey, desBlockSize .. 2*desBlockSize, k2)
+        copyTo(initialKey, 2*desBlockSize .. 3*desBlockSize, k3)
     else:
         doAssert(false, "Key not desBlockSize multiple:" & $initialKey.len)
     
@@ -94,7 +94,7 @@ proc setIV*(cipher: desCipher, initVector: openArray[byte]) =
     
     doAssert(initVector.len == desBlockSize, "IV not block")
 
-    initVector.loadHigh(cipher.iv)
+    loadHigh(initVector, cipher.iv)
     
 
 #---------
@@ -140,10 +140,10 @@ proc encrypt*[T](cipher: desCipher; src: T; dst: var openArray[byte]; mode: bloc
     # this excludes the last incomplete chunk if any
     for i in 0 .. n.pred:
         
-        src.loadHigh(v, pos)
+        loadHigh(src, v, pos)
         d = cipher.cryptBlock(v, mode, opEncrypt)
         
-        dst.storeHigh(d, pos)
+        storeHigh(dst, d, pos)
         inc(pos, desBlockSize)
 
 
@@ -165,10 +165,10 @@ proc decrypt*[T](cipher: desCipher; src: T; dst: var openArray[byte]; mode: bloc
     # this excludes the last incomplete chunk if any
     for i in 0 .. n.pred:
         
-        src.loadHigh(v, pos)
+        loadHigh(src, v, pos)
         d = cipher.cryptBlock(v, mode, opDecrypt)
         
-        dst.storeHigh(d, pos)
+        storeHigh(dst, d, pos)
         inc(pos, desBlockSize)
 
 
@@ -191,7 +191,7 @@ proc mac*[T](cipher: desCipher; src: T; dst: var desBlock; version: macVersion; 
         pos = 0
         s, d: int64
 
-    let hasPadding = src.lastBlock(padBlock, pad, enforceFullBlockPadding)
+    let hasPadding = lastBlock(src, padBlock, pad, enforceFullBlockPadding)
     
     if version == macX9_19:
         cipher.restrict(true)
@@ -200,7 +200,7 @@ proc mac*[T](cipher: desCipher; src: T; dst: var desBlock; version: macVersion; 
 
     for i in 0 .. n.pred:    
 
-        src.loadHigh(s, pos)
+        loadHigh(src, s, pos)
         d = cipher.cryptBlock(s, modeCBC, opEncrypt)
         inc(pos, desBlockSize)
     
@@ -209,17 +209,17 @@ proc mac*[T](cipher: desCipher; src: T; dst: var desBlock; version: macVersion; 
     
     if hasPadding:
 
-        padBlock.loadHigh(s, 0)
+        loadHigh(padBlock, s, 0)
         d = cipher.cryptBlock(s, modeCBC, opEncrypt)
     else:
         if version == macX9_19:
             # full blocks and last one needs 3DES
             pos = src.len - desBlocksize
             
-            src.loadHigh(s, pos)
+            loadHigh(src, s, pos)
             d = cipher.cryptBlock(s, modeCBC, opEncrypt)
     
     
-    dst.storeHigh(d)
+    storeHigh(dst, d)
 
     

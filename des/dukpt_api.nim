@@ -12,9 +12,9 @@ proc pekBlackBox(currKey: var dukptKey, currKSN: dukptKsn) =
         nextKeyRight: desKey
         cipher: desCipher
         
-    currKey.copyTo(keyLeft)
-    currKey[desBlockSize .. ^1].copyTo(keyRight)
-    currKSN[2 .. ^1].copyTo(ksnLSB)
+    copyTo(currKey, keyLeft)
+    copyTo(currKey[desBlockSize .. ^1], keyRight)
+    copyTo(currKSN[2 .. ^1], ksnLSB)
 
     # ===============================================
     # LSB of new key is:
@@ -23,35 +23,35 @@ proc pekBlackBox(currKey: var dukptKey, currKSN: dukptKsn) =
     # - XOR with right key
     # ===============================================
     msg = keyRight
-    msg.applyWith(ksnLSB,`xor`)
+    applyWith(msg, ksnLSB,`xor`)
     cipher = newDesCipher(keyLeft)
     cipher.encrypt(msg, nextKeyRight)
-    nextKeyRight.applyWith(keyRight, `xor`)
-    nextKeyRight.copyTo(currKey, desBlockSize) #apply back to currKey[desBlockSize .. ^1]
+    applyWith(nextKeyRight, keyRight, `xor`)
+    copyTo(nextKeyRight, currKey, desBlockSize) #apply back to currKey[desBlockSize .. ^1]
 
     # ===============================================
     # MSB of new key is as above but the input key is
     # C0C0C0C000000000 masked
     # ===============================================
-    keyLeft.applyWith(ipekMask,`xor`)
-    keyRight.applyWith(ipekMask,`xor`)
+    applyWith(keyLeft, ipekMask,`xor`)
+    applyWith(keyRight, ipekMask,`xor`)
 
     msg = keyRight
-    msg.applyWith(ksnLSB,`xor`)
+    applyWith(msg, ksnLSB,`xor`)
     cipher = newDesCipher(keyLeft)
     cipher.encrypt(msg, nextKeyLeft)
-    nextKeyLeft.applyWith(keyRight, `xor`) 
-    nextKeyLeft.copyTo(currKey) #apply back to currKey[0..desBlockSize.pred]
+    applyWith(nextKeyLeft, keyRight, `xor`) 
+    copyTo(nextKeyLeft, currKey) #apply back to currKey[0..desBlockSize.pred]
 
 #----
 proc createPEK*(ipek, ksn: openArray[byte]): dukptKey =
     var
         ksnAccumulator: dukptKsn
 
-    ksn.copyTo(ksnAccumulator)
-    ksnAccumulator.applyWith(ksnCounterMask, `and`)
+    copyTo(ksn, ksnAccumulator)
+    applyWith(ksnAccumulator, ksnCounterMask, `and`)
 
-    ipek.copyTo(result)
+    copyTo(ipek, result)
 
     # ===============================================
     # k(n+1) derived from k(n) and ksn(n)
@@ -77,8 +77,8 @@ proc createIPEK(bdk, ksn: openArray[byte]): dukptKey =
         ipek_r: array[desBlockSize, byte]
         ksnAccumulator: dukptKsn
 
-    ksn.copyTo(ksnAccumulator)
-    ksnAccumulator.applyWith(ksnCounterMask, `and`)
+    copyTo(ksn, ksnAccumulator)
+    applyWith(ksnAccumulator, ksnCounterMask, `and`)
     
     # left register IPEK
     var tripleDes = newDesCipher(bdk)
@@ -90,8 +90,8 @@ proc createIPEK(bdk, ksn: openArray[byte]): dukptKey =
     tripleDes = newDesCipher(keyMasked)
     tripleDes.encrypt(ksnAccumulator, ipek_r, modeCBC)
 
-    ipek_l.copyTo(result, 0)
-    ipek_r.copyTo(result, desBlockSize)
+    copyTo(ipek_l, result, 0)
+    copyTo(ipek_r, result, desBlockSize)
 
 #--------------
 
@@ -116,17 +116,17 @@ proc selectKey*(cipher: var dukptCipher, variant: keyVariant) =
 
     case variant
     of kvData:
-        maskKey.applyWith(dataMask, `xor`)
+        applyWith(maskKey, dataMask, `xor`)
         var c = newDesCipher(maskKey)
         c.encrypt(maskKey, maskKey, modeECB)
     of kvDataSimple:
-        maskKey.applyWith(dataMask, `xor`)
+        applyWith(maskKey, dataMask, `xor`)
     of kvPin:
-        maskKey.applyWith(pinMask, `xor`)
+        applyWith(maskKey, pinMask, `xor`)
     of kvMacReq:
-        maskKey.applyWith(mReqMask, `xor`)
+        applyWith(maskKey, mReqMask, `xor`)
     of kvMacReply:
-        maskKey.applyWith(mRspMask, `xor`)
+        applyWith(maskKey, mRspMask, `xor`)
 
     cipher.crypter = newDesCipher(maskKey)
 
@@ -145,16 +145,17 @@ proc newDukptCipher*(key, ksn: openArray[byte], isBDK: bool = true): dukptCipher
         result.pek = createPEK(key, ksn) # IPEK=key as provided
     result.selectKey(kvData)
 
-#---
+#--- dot call on generic templates is sensitive to nesting and scope / type evaluation; 
+# prefer standard call fct(param1, param2, ...)
 template encrypt*(cipher: dukptCipher; src, dst: typed; mode: blockMode = modeCBC) =
-    cipher.crypter.encrypt(src, dst, mode)
+    encrypt(cipher.crypter, src, dst, mode)
 
 template decrypt*(cipher: dukptCipher; src, dst: typed; mode: blockMode = modeCBC) =
-    cipher.crypter.decrypt(src, dst, mode)
+    decrypt(cipher.crypter, src, dst, mode)
 
 #---
 template mac*(cipher: dukptCipher; src, dst: typed; version: macVersion; pad: blockPadding; enforceFullBlockPadding: bool = false) =
-    cipher.crypter.mac(src, dst, version, pad, enforceFullBlockPadding)
+    mac(cipher.crypter, src, dst, version, pad, enforceFullBlockPadding)
 
 
 #---

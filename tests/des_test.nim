@@ -127,28 +127,28 @@ when isMainModule:
         padBlock: desBlock
 
     # string partial input
-    discard sPart.lastBlock(padBlock, padPKCS5, true)
+    discard lastBlock(sPart, padBlock, padPKCS5, true)
     let res1 = ['y'.ord().byte, 'e'.ord(), 's'.ord(), 5, 5, 5, 5, 5]
     doAssert(padBlock == res1, "\nPad 1: $1 vs expected $2" % [padBlock.toHex(true), res1.toHex(true)])
 
-    discard sPart.lastBlock(padBlock, padX923, true)
+    discard lastBlock(sPart, padBlock, padX923, true)
     let res2 = ['y'.ord().byte, 'e'.ord(), 's'.ord(), 0, 0, 0, 0, 5]
     doAssert(padBlock == res2, "\nPad 2: $1 vs expected $2" % [padBlock.toHex(true), res2.toHex(true)])
 
-    discard sPart.lastBlock(padBlock, padISO7816, true)
+    discard lastBlock(sPart, padBlock, padISO7816, true)
     let res3 = ['y'.ord().byte, 'e'.ord(), 's'.ord(), 0x80, 0, 0, 0, 0]
     doAssert(padBlock == res3, "\nPad 3: $1 vs expected $2" % [padBlock.toHex(true), res3.toHex(true)])
 
     # bin partial input
-    discard bPart.lastBlock(padBlock, padPKCS5, true)
+    discard lastBlock(bPart, padBlock, padPKCS5, true)
     let res7 = [0x99.byte, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 2, 2]
     doAssert(padBlock == res7, "\nPad 7: $1 vs expected $2" % [padBlock.toHex(true), res7.toHex(true)])
     
-    discard bPart.lastBlock(padBlock, padX923, true)
+    discard lastBlock(bPart, padBlock, padX923, true)
     let res8 = [0x99.byte, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0, 2]
     doAssert(padBlock == res8, "\nPad 7: $1 vs expected $2" % [padBlock.toHex(true), res8.toHex(true)])
     
-    discard bPart.lastBlock(padBlock, padISO7816, true)
+    discard lastBlock(bPart, padBlock, padISO7816, true)
     let res9 = [0x99.byte, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x80, 0]
     doAssert(padBlock == res9, "\nPad 7: $1 vs expected $2" % [padBlock.toHex(true), res9.toHex(true)])
     
@@ -158,23 +158,23 @@ when isMainModule:
     let fullISO7816 = [0x80.byte, 0, 0, 0, 0, 0, 0, 0]
 
     # string full input
-    discard sFull.lastBlock(padBlock, padPKCS5, true)
+    discard lastBlock(sFull, padBlock, padPKCS5, true)
     doAssert(padBlock == fullPKCS5, "\nstring fullPKCS5: $1 vs expected $2" % [padBlock.toHex(true), fullPKCS5.toHex(true)])
 
-    discard sFull.lastBlock(padBlock, padX923, true)
+    discard lastBlock(sFull, padBlock, padX923, true)
     doAssert(padBlock == fullX923, "\nPad 5: $1 vs expected $2" % [padBlock.toHex(true), fullX923.toHex(true)])
     
-    discard sFull.lastBlock(padBlock, padISO7816, true)
+    discard lastBlock(sFull, padBlock, padISO7816, true)
     doAssert(padBlock == fullISO7816, "\nPad 6: $1 vs expected $2" % [padBlock.toHex(true), fullISO7816.toHex(true)])
 
     # bin full input
-    discard bFull.lastBlock(padBlock, padPKCS5, true)
+    discard lastBlock(bFull, padBlock, padPKCS5, true)
     doAssert(padBlock == fullPKCS5, "\nbin fullPKCS5: $1 vs expected $2" % [padBlock.toHex(true), fullPKCS5.toHex(true)])
     
-    discard bFull.lastBlock(padBlock, padX923, true)
+    discard lastBlock(bFull, padBlock, padX923, true)
     doAssert(padBlock == fullX923, "\nbin fullX923: $1 vs expected $2" % [padBlock.toHex(true), fullX923.toHex(true)])
     
-    discard bFull.lastBlock(padBlock, padISO7816, true)
+    discard lastBlock(bFull, padBlock, padISO7816, true)
     doAssert(padBlock == fullISO7816, "\nbin fullISO7816: $1 vs expected $2" % [padBlock.toHex(true), fullISO7816.toHex(true)])
 
     echo "=== passed ==="

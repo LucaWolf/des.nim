@@ -58,21 +58,19 @@ proc `mod`*[T: SomeInteger|byte](c: char, n: T): char =
     result = char(ord(c).T mod n)
 
 #-----------------
-template testBit*(buff: typed, idx: int): bool = 
-    var result: bool = false
+proc testBit*[T](buff: T, idx: int): bool = 
     if idx > (buff.len * 8 - 1):
         result = false
     else:
         var mask =  maskbit[idx and 7]
         result = (buff[idx div 8] and mask.byte) != 0
-    result
 
-template setBit*(buff: typed, idx: int) =
+proc setBit*[T](buff: var T, idx: int) =
     if idx <= (buff.len * 8 - 1):
         var mask =  maskbit[idx and 7]
         buff[idx div 8] = buff[idx div 8] or mask.byte
 
-template resetBit*(buff: typed, idx: int) =
+proc resetBit*[T](buff: var T, idx: int) =
     if idx <= (buff.len * 8 - 1):
         var mask =  maskbit[idx and 7]
         buff[idx div 8] = buff[idx div 8] and not(mask.byte)

@@ -18,7 +18,7 @@ proc main() =
         mode = modeCBC
         padding = padPKCS5
         enforceFullBlockPadding = false
-        hasPadding = dataClear.lastBlock(dataLast, padding, enforceFullBlockPadding)
+        hasPadding = lastBlock(dataClear, dataLast, padding, enforceFullBlockPadding)
 
     echo "Clear data is:  ", toHex(dataClear, false)
     #echo "Clear data is:  ", dataClear
