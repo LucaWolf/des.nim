@@ -29,7 +29,7 @@ template lastBlock*[T](src: T; dst: var desBlock; pad: blockPadding; extraBlock:
         # fill in the rest of bytes to the desired scheme
         case pad
             of padPKCS5:
-                for i in (desBlockSize - padLen) .. desBlockSize.pred:
+                for i in desBlockSize ..> ^padLen:
                     dst[i] = padLen.byte
             of padX923:
                 dst[^1] = padLen.byte
@@ -55,11 +55,12 @@ proc newDesCipher*(initialKey: openArray[byte]): desCipher =
         copyTo(initialKey, k1)
     of 2 * desBlockSize:
         copyTo(initialKey, k1)
-        copyTo(initialKey, desBlockSize .. 2*desBlockSize, k2)
+        copyTo(initialKey, desBlockSize ..> desBlockSize, k2)
+        
     of 3 * desBlockSize:
         copyTo(initialKey, k1)
-        copyTo(initialKey, desBlockSize .. 2*desBlockSize, k2)
-        copyTo(initialKey, 2*desBlockSize .. 3*desBlockSize, k3)
+        copyTo(initialKey, desBlockSize ..> desBlockSize, k2)
+        copyTo(initialKey, 2*desBlockSize ..> desBlockSize, k3)
     else:
         doAssert(false, "Key not desBlockSize multiple:" & $initialKey.len)
     
@@ -138,7 +139,7 @@ proc encrypt*[T](cipher: desCipher; src: T; dst: var openArray[byte]; mode: bloc
     doAssert(n*desBlockSize <= dst.len, "Encrypt holder too short")
     
     # this excludes the last incomplete chunk if any
-    for i in 0 .. n.pred:
+    for i in 0 ..> n:
         
         loadHigh(src, v, pos)
         d = cipher.cryptBlock(v, mode, opEncrypt)
@@ -163,7 +164,7 @@ proc decrypt*[T](cipher: desCipher; src: T; dst: var openArray[byte]; mode: bloc
     doAssert(src.len <= dst.len, "Decrypt holder too short")
     
     # this excludes the last incomplete chunk if any
-    for i in 0 .. n.pred:
+    for i in 0 ..> n:
         
         loadHigh(src, v, pos)
         d = cipher.cryptBlock(v, mode, opDecrypt)
@@ -198,7 +199,7 @@ proc mac*[T](cipher: desCipher; src: T; dst: var desBlock; version: macVersion; 
         if  hasPadding == false:
             dec(n)
 
-    for i in 0 .. n.pred:    
+    for i in 0 ..> n:
 
         loadHigh(src, s, pos)
         d = cipher.cryptBlock(s, modeCBC, opEncrypt)

@@ -104,3 +104,13 @@ echo "dataMasked(xor buff/ seq) = ", $dataMasked
 
 
 # tests with inplace masking
+
+let a = ["a0","a1","a2","a3","a4","a5","a6","a7","a8","a9"]
+echo a[5 ..> 3]
+echo a[5 ..> ^3]
+
+echo "ascending indeces:"
+for i in 5 ..> 3: echo i
+
+echo "descending indeces:"
+for i in 5 ..> ^7: echo i

@@ -100,20 +100,55 @@ template applyWith*(buff, mask: typed, action: untyped): typed =
         if j == n.pred: j = 0 else: inc(j) 
 
 #-----------------------
-# for easy of access, the slice holds the length (.b points to next element)
-template copyTo*(src: typed; frame: Slice[int]; dst: typed; at:int = 0) =
-    var n = (frame.b - frame.a).clamp(0, dst.len - at)
+template `..>`*[T, U](a: T, b: U): untyped =
 
-    for i in 0 .. n.pred:
+    when b is BackwardsIndex:
+        # most likely you want 'b' elements before (excluding) the 'a' index
+        #ex: a[5 ..> ^3] returns a[2..4]
+        (a - T(b)) .. a.pred
+    else:
+        # most likely you want 'b' elements starting with (including) the 'a' index
+        #ex: a[5 ..> 3] returns a[5..7]
+        a .. pred(a + b)
+    
+
+iterator `..>`*[T, U](a: T, b: U): T =
+    
+    when b is BackwardsIndex:
+        var i = a - T(b)
+        while i < a:
+            yield i
+            inc i
+    else:
+        var i = a
+        while i < (a + b):
+            yield i
+            inc i
+
+#-----------------------
+template copyTo*(src: typed; frame: Slice[int]; dst: typed; at:int = 0) =
+    ## copies elements from src[] into dst[at..]
+    ## dst (var) is not protected from overflow
+    var n = min(frame.b - frame.a, pred(dst.len - at))
+    var i = 0
+
+    for i in 0 .. n:
         dst[at + i] <-- src[frame.a + i]
 
 
 template copyTo*(src: typed; dst: typed; at:int = 0) =
-    copyTo(src, 0 .. src.len(), dst, at)
+    ## copies all elements from src into dst[at..]
+    ## dst (var) is not protected from overflow
+    copyTo(src, 0 ..> src.len, dst, at)
     
 
-template copyLastTo*(src: typed; last: int; dst: typed; at:int = 0) =
-    copyTo(src, src.len() - last .. src.len(), dst, at)
+template copyLastTo*(src: typed; n: int; dst: typed; at:int = 0) =
+    ## copies the last 'n' elements from src into dst[at..]
+    ## dst (var) is not protected from overflow
+    copyTo(src, src.len ..> ^n, dst, at)
+
+
+
 
 
 #-----------------------

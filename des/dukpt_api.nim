@@ -13,8 +13,9 @@ proc pekBlackBox(currKey: var dukptKey, currKSN: dukptKsn) =
         cipher: desCipher
         
     copyTo(currKey, keyLeft)
-    copyTo(currKey[desBlockSize .. ^1], keyRight)
-    copyTo(currKSN[2 .. ^1], ksnLSB)
+    copyLastTo(currKey, desBlockSize, keyRight)
+    copyLastTo(currKSN, desBlockSize, ksnLSB)
+    
 
     # ===============================================
     # LSB of new key is:
@@ -64,7 +65,7 @@ proc createPEK*(ipek, ksn: openArray[byte]): dukptKey =
     #  ksn(3) = 9876543210E0000B (B = A|0001),
     # ===============================================
 
-    for n in (8*ksnSize - ksnCounterBits) .. (8*ksnSize).pred:
+    for n in (8*ksnSize) ..> ^ksnCounterBits:
         if testBit(ksn, n):
             setBit(ksnAccumulator, n)
             result.pekBlackBox(ksnAccumulator)

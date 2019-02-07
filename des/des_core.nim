@@ -46,7 +46,7 @@ proc initKeys(keyin: desKey, edf: blockOp, keyout: var subkeys) =
         pc1m, pcr: array[56, byte]
         mask: byte
     
-    for j in 0 .. pc1m.len.pred:
+    for j in 0 ..> pc1m.len:
         s = pc1[j]
         m =  s and 7
         mask = maskbit[m].byte
@@ -67,7 +67,7 @@ proc initKeys(keyin: desKey, edf: blockOp, keyout: var subkeys) =
             s = j + totrot[i];
             pcr[j] = if (s < 56): pc1m[s] else: pc1m[s - 28]
         
-        for j in 0 .. bigbyte.len.pred:
+        for j in 0 ..> bigbyte.len:
             if (pcr[pc2[j]] != 0'u8):
                kn[m] = kn[m] or bigbyte[j]
             

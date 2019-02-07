@@ -3,7 +3,7 @@ import ../des/des_api
 
 proc toString(buff: seq[byte]): string =
     result = newString(buff.len)
-    for i in 0 .. buff.len().pred:
+    for i in 0 ..> buff.len:
         result[i] = buff[i].char()
 
 
