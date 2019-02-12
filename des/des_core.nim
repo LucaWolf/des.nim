@@ -1,4 +1,4 @@
-import strutils, bin, des_const, des_type
+import strutils, sequtils, bin, des_const, des_type
 
 #--------- DES and DES3 objects -----
 type        
@@ -13,71 +13,71 @@ type
 #---------
 
 #---------
-proc cookey(raw: subkeys, key: var subkeys) = 
-    
-    for i in 0..15:
-        var
-            raw0 = raw[2*i]
-            raw1 = raw[2*i + 1]
-            # init
-            k1 = key[2*i]
-            k2 = key[2*i + 1]
-            
-        k1 =        (raw0 and 0x00fc0000) shl 6
-        k1 = k1 or ((raw0 and 0x00000fc0) shl 10)
-        k1 = k1 or ((raw1 and 0x00fc0000) shr 10)
-        k1 = k1 or ((raw1 and 0x00000fc0) shr 6)        
-        
-        k2 =        ((raw0 and 0x0003f000) shl 12)
-        k2 = k2 or ((raw0 and 0x0000003f) shl 16).toU32()
-        k2 = k2 or ((raw1 and 0x0003f000) shr 4)
-        k2 = k2 or  (raw1 and 0x0000003f)
+template cook1(raw0,raw1): untyped = 
+    ((raw0 and 0x00fc0000) shl 6) or 
+        ((raw0 and 0x00000fc0) shl 10) or
+        ((raw1 and 0x00fc0000) shr 10) or
+        ((raw1 and 0x00000fc0) shr 6)
 
-        # write back
-        key[2*i] = k1 
-        key[2*i + 1] = k2
-        
+template cook2(raw0,raw1): untyped =
+    ((raw0 and 0x0003f000) shl 12) or
+        ((raw0 and 0x0000003f) shl 16).toU32() or 
+        ((raw1 and 0x0003f000) shr 4) or
+        (raw1 and 0x0000003f)
+
+template cookElem(i, raw, key): untyped =
+    let raw0 = raw[2*i]
+    let raw1 = raw[2*i+1]
+
+    key[2*i] = cook1(raw0, raw1)
+    key[2*i+1] = cook2(raw0, raw1)
+
+proc cookey(raw: subkeys, key: var subkeys) =
+    cookElem(0, raw, key); cookElem(1, raw, key); cookElem(2, raw, key); cookElem(3, raw, key);
+    cookElem(4, raw, key); cookElem(5, raw, key); cookElem(6, raw, key); cookElem(7, raw, key);
+    cookElem(8, raw, key); cookElem(9, raw, key); cookElem(10, raw, key); cookElem(11, raw, key);
+    cookElem(12, raw, key); cookElem(13, raw, key); cookElem(14, raw, key); cookElem(15, raw, key);
 
 #---------
-proc initKeys(keyin: desKey, edf: blockOp, keyout: var subkeys) = 
+const
+    mm_dec = [15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0].mapIt(it shl 1)
+    mm_enc = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].mapIt(it shl 1)
+
+proc initKeys(keyin: desKey, op: blockOp, keyout: var subkeys) = 
     var
         s,m,n: int
         kn: subkeys
-        pc1m, pcr: array[56, byte]
-        mask: byte
-    
-    for j in 0 ..> pc1m.len:
-        s = pc1[j]
-        m =  s and 7
-        mask = maskbit[m].byte
-        pc1m[j] = if ((keyin[s shr 3] and mask) == mask): 1 else: 0
+        pc1m, pcr: array[0..55, byte]
+        mask: byte 
 
-    for i in 0..15:
-        m = if (edf == opDecrypt): (15 - i) shl 1  else: i shl 1
+    let mm = if op == opDecrypt: mm_dec else: mm_enc
         
+    for i,s in pairs pc1:
+        mask = maskbit[s and 7]
+        # (a and mask) xor mask = a.not and mask; equals zero if a == mask
+        pc1m[i] = not(keyin[s shr 3]) and mask
+
+    for i,m in pairs mm:
         n = m + 1
         kn[m] = 0
         kn[n] = 0
         
-        for j in 0..27:
+        for j in 0 ..> 28:
             s = j + totrot[i];
             pcr[j] = if (s < 28): pc1m[s] else: pc1m[s - 28]
         
-        for j in 28..55:
+        for j in 28 ..> 28:
             s = j + totrot[i];
             pcr[j] = if (s < 56): pc1m[s] else: pc1m[s - 28]
         
         for j in 0 ..> bigbyte.len:
-            if (pcr[pc2[j]] != 0'u8):
-               kn[m] = kn[m] or bigbyte[j]
-            
-            if (pcr[pc2[j+24]] != 0'u8):
-               kn[n] = kn[n] or bigbyte[j]
-
+            if pcr[pc2[j + 00]] == 0'u8: kn[m] = kn[m] or bigbyte[j]            
+            if pcr[pc2[j + 24]] == 0'u8: kn[n] = kn[n] or bigbyte[j]
+        
     cookey(kn, keyout)
     
 
-template desround(cur_round: int, key: subkeys): untyped = 
+template desround(cur_round: int, right, left: var int32, key: subkeys): untyped = 
     var w1, w2: int32
 
     w1 = ror(right, 4) xor key[4*cur_round]
@@ -140,14 +140,14 @@ proc desfunc(data: var int64, key: subkeys) =
     right = right xor work
     left = rol(left, 1)
 
-    desround(0, key)
-    desround(1, key)
-    desround(2, key)
-    desround(3, key)
-    desround(4, key)
-    desround(5, key)
-    desround(6, key)
-    desround(7, key)
+    desround(0, right, left, key)
+    desround(1, right, left, key)
+    desround(2, right, left, key)
+    desround(3, right, left, key)
+    desround(4, right, left, key)
+    desround(5, right, left, key)
+    desround(6, right, left, key)
+    desround(7, right, left, key)
 
     right = ror(right, 1)
     work = (left xor right) and 0xaaaaaaaa.toU32()

@@ -5,17 +5,10 @@ export dukpt_const
 #----
 proc pekBlackBox(currKey: var dukptKey, currKSN: dukptKsn) =
 
-    var
-        keyLeft, keyRight: desKey # copies
-        msg, ksnLSB: desKey
-        nextKeyLeft: desKey
-        nextKeyRight: desKey
-        cipher: desCipher
-        
-    copyTo(currKey, keyLeft)
-    copyLastTo(currKey, desBlockSize, keyRight)
-    copyLastTo(currKSN, desBlockSize, ksnLSB)
-    
+    var cipher: desCipher
+    var keyLeft = currKey[0 ..> desBlockSize]
+    var keyRight = currKey[desBlockSize ..> desBlockSize]
+    var ksnLSB = currKSN[^desBlockSize .. ^1]
 
     # ===============================================
     # LSB of new key is:
@@ -23,12 +16,12 @@ proc pekBlackBox(currKey: var dukptKey, currKSN: dukptKsn) =
     # - encrypt with left key
     # - XOR with right key
     # ===============================================
-    msg = keyRight
+    var msg = keyRight
     applyWith(msg, ksnLSB,`xor`)
     cipher = newDesCipher(keyLeft)
-    cipher.encrypt(msg, nextKeyRight)
-    applyWith(nextKeyRight, keyRight, `xor`)
-    copyTo(nextKeyRight, currKey, desBlockSize) #apply back to currKey[desBlockSize .. ^1]
+    cipher.encrypt(msg, msg) # in place encrypt safe
+    applyWith(msg, keyRight, `xor`)    
+    currKey[^desBlockSize .. ^1] = msg # apply back to currKey[desBlockSize .. ^1]
 
     # ===============================================
     # MSB of new key is as above but the input key is
@@ -40,19 +33,17 @@ proc pekBlackBox(currKey: var dukptKey, currKSN: dukptKsn) =
     msg = keyRight
     applyWith(msg, ksnLSB,`xor`)
     cipher = newDesCipher(keyLeft)
-    cipher.encrypt(msg, nextKeyLeft)
-    applyWith(nextKeyLeft, keyRight, `xor`) 
-    copyTo(nextKeyLeft, currKey) #apply back to currKey[0..desBlockSize.pred]
+    cipher.encrypt(msg, msg) # in place encrypt safe
+    applyWith(msg, keyRight, `xor`) 
+    currKey[0 ..> desBlockSize] = msg # apply back to currKey[0..desBlockSize.pred]
 
 #----
-proc createPEK*(ipek, ksn: openArray[byte]): dukptKey =
-    var
-        ksnAccumulator: dukptKsn
+proc createPEK*(ipek: dukptKey, ksn: dukptKsn): dukptKey =
+    
+    var ksnAccumulator = ksn
 
-    copyTo(ksn, ksnAccumulator)
     applyWith(ksnAccumulator, ksnCounterMask, `and`)
-
-    copyTo(ipek, result)
+    result = ipek
 
     # ===============================================
     # k(n+1) derived from k(n) and ksn(n)
@@ -72,30 +63,30 @@ proc createPEK*(ipek, ksn: openArray[byte]): dukptKey =
 
 
 # -------------
-proc createIPEK(bdk, ksn: openArray[byte]): dukptKey =
+proc createIPEK(bdk: dukptKey, ksn: dukptKsn): dukptKey =
     var
         ipek_l: array[desBlockSize, byte]
         ipek_r: array[desBlockSize, byte]
-        ksnAccumulator: dukptKsn
+        ksnAccumulator = ksn
+        keyMasked = bdk
 
-    copyTo(ksn, ksnAccumulator)
     applyWith(ksnAccumulator, ksnCounterMask, `and`)
     
     # left register IPEK
-    var tripleDes = newDesCipher(bdk)
-    tripleDes.encrypt(ksnAccumulator, ipek_l, modeCBC)
+    var cipher = newDesCipher(bdk)
+    encrypt(cipher, ksnAccumulator, ipek_l, modeCBC)
 
     # prepare the key for the right register IPEK
-    var keyMasked = mapWith(bdk, ipekMask, `xor`)
+    applyWith(keyMasked, ipekMask, `xor`)
 
-    tripleDes = newDesCipher(keyMasked)
-    tripleDes.encrypt(ksnAccumulator, ipek_r, modeCBC)
+    cipher = newDesCipher(keyMasked)
+    encrypt(cipher, ksnAccumulator, ipek_r, modeCBC)
 
-    copyTo(ipek_l, result, 0)
-    copyTo(ipek_r, result, desBlockSize)
+    result[0 ..> desBlockSize] = ipek_l
+    result[desBlockSize ..> desBlockSize] = ipek_r
 
-#--------------
 
+#-------------- public API --------------
 type
     dukptCipherObj = object
         pek: dukptKey
@@ -135,15 +126,23 @@ proc selectKey*(cipher: var dukptCipher, variant: keyVariant) =
 #---
 proc newDukptCipher*(key, ksn: openArray[byte], isBDK: bool = true): dukptCipher =
 
-    doAssert(key.len == 2 * desBlockSize, "DUKPT Key not desBlockSize multiple:" & $key.len)
+    doAssert(key.len == 2 * desBlockSize, "DUKPT Key not 2DES:" & $key.len)
     doAssert(ksn.len == ksnSize, "KSN wrong size:" & $ksn.len)
+
+    # need converting frm the openaray input into array
+    var
+       dkey: dukptKey
+       dksn: dukptKsn
+
+    key.copyTo(dkey)
+    ksn.copyTo(dksn)
         
     new(result)
     
     if isBDK:
-        result.pek = createPEK(createIPEK(key, ksn), ksn) # derive IPEK from BDK=key
+        result.pek = createPEK(createIPEK(dkey, dksn), dksn) # derive IPEK from BDK=key
     else:
-        result.pek = createPEK(key, ksn) # IPEK=key as provided
+        result.pek = createPEK(dkey, dksn) # IPEK=key as provided
     result.selectKey(kvData)
 
 #--- dot call on generic templates is sensitive to nesting and scope / type evaluation; 

@@ -1,7 +1,7 @@
 import strutils, sequtils, endians, typeinfo
 include bin_utils
 
-const maskbit* = [0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01]
+const maskbit* = [0x80.byte, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01]
 
 #-----------------
 proc rol*[T](x: T, y: int8): T =
@@ -63,17 +63,17 @@ proc testBit*[T](buff: T, idx: int): bool =
         result = false
     else:
         var mask =  maskbit[idx and 7]
-        result = (buff[idx div 8] and mask.byte) != 0
+        result = (buff[idx div 8] and mask) != 0
 
 proc setBit*[T](buff: var T, idx: int) =
     if idx <= (buff.len * 8 - 1):
         var mask =  maskbit[idx and 7]
-        buff[idx div 8] = buff[idx div 8] or mask.byte
+        buff[idx div 8] = buff[idx div 8] or mask
 
 proc resetBit*[T](buff: var T, idx: int) =
     if idx <= (buff.len * 8 - 1):
         var mask =  maskbit[idx and 7]
-        buff[idx div 8] = buff[idx div 8] and not(mask.byte)
+        buff[idx div 8] = buff[idx div 8] and not(mask)
 
 #-----------------
 template mapWith*(buff, mask: typed; action: untyped): untyped =
