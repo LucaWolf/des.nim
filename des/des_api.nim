@@ -49,43 +49,55 @@ proc newDesCipher*(initialKey: openArray[byte]): desCipher =
     ## The length of *initialKey* must be exact one, double or triple of desKey
     var
         k1, k2, k3: desKey
-
+    
+    new(result)
+    result.iv = 0
+    result.restricted = false
+    result.keyIsSingle = false
+        
     case initialKey.len
+
     of desBlockSize:
         copyTo(initialKey, k1)
+
+        # no k2, k3 for either enc[1|2] or dec[1|2]
+        initKeys(k1, opEncrypt, result.keyEnc[0])
+        initKeys(k1, opDecrypt, result.keyDec[0])
+        
+        result.restricted = true
+        result.keyIsSingle = true
+        
     of 2 * desBlockSize:
         copyTo(initialKey, k1)
         copyTo(initialKey, desBlockSize ..> desBlockSize, k2)
+        
+        # always perform 3DES with k3 = k1
+        initKeys(k1, opEncrypt, result.keyEnc[0]);  result.keyEnc[2] = result.keyEnc[0]
+        initKeys(k2, opDecrypt, result.keyEnc[1])
+
+        # N.B. decrypting uses the original k1,k2,k3 in reverse order, hence save in slots 2,1,0
+        # in this case k3 == k1 so order Does NOT really matter.
+        initKeys(k1, opDecrypt, result.keyDec[2]); result.keyDec[0] = result.keyDec[2]
+        initKeys(k2, opEncrypt, result.keyDec[1])
         
     of 3 * desBlockSize:
         copyTo(initialKey, k1)
         copyTo(initialKey, desBlockSize ..> desBlockSize, k2)
         copyTo(initialKey, 2*desBlockSize ..> desBlockSize, k3)
+
+        initKeys(k1, opEncrypt, result.keyEnc[0])
+        initKeys(k2, opDecrypt, result.keyEnc[1])
+        initKeys(k3, opEncrypt, result.keyEnc[2])
+
+        # N.B. decrypting uses the original k1,k2,k3 in reverse order, hence save in slots 2,1,0
+        # in this case k3 != k1 so order DOES matter.
+        initKeys(k1, opDecrypt, result.keyDec[2])
+        initKeys(k2, opEncrypt, result.keyDec[1])
+        initKeys(k3, opDecrypt, result.keyDec[0])
+
     else:
         doAssert(false, "Key not desBlockSize multiple:" & $initialKey.len)
-    
-    new(result)
-    result.iv = 0
-    result.restricted = true
-    result.keyIsSingle = true
-
-    # enc keys
-    initKeys(k1, opEncrypt, result.keyEnc[0])
-    initKeys(k1, opDecrypt, result.keyDec[2]) # dec keys are used in reversed order
-    
-    if initialKey.len > desBlockSize:
-        initKeys(k2, opDecrypt, result.keyEnc[1])
-        initKeys(k2, opEncrypt, result.keyDec[1])
-        result.restricted = false
-        result.keyIsSingle = false
-
-    if initialKey.len > 2*desBlockSize:
-        initKeys(k3, opEncrypt, result.keyEnc[2])
-        initKeys(k3, opDecrypt, result.keyDec[0])
-    else: # this also covers single DES decryption
-        result.keyEnc[2] = result.keyEnc[0]
-        result.keyDec[0] = result.keyDec[2]
-            
+        
     # NOTE: weak keys is the responsability of and should be tested by the API user
 
 #---------
@@ -136,6 +148,7 @@ proc encrypt*[T](cipher: desCipher; src: T; dst: var openArray[byte]; mode: bloc
         n = src.len div desBlocksize
         v, d: uint64
 
+    doAssert(src.len != 0, "Input empty block")
     doAssert(n*desBlockSize <= dst.len, "Encrypt holder too short")
     
     # this excludes the last incomplete chunk if any
@@ -160,6 +173,7 @@ proc decrypt*[T](cipher: desCipher; src: T; dst: var openArray[byte]; mode: bloc
         v, d: uint64
 
     # mod 8 is: val and 0x07
+    doAssert(src.len != 0, "Input empty block")
     doAssert((src.len and desBlockSize.pred) == 0, "Input incomplete block")
     doAssert(src.len <= dst.len, "Decrypt holder too short")
     
@@ -184,6 +198,7 @@ proc mac*[T](cipher: desCipher; src: T; dst: var desBlock; version: macVersion; 
     
     # input could have an incomplete block as we use the padding param,
     # test only only the output
+    doAssert(src.len != 0, "Input empty block")
     doAssert(desBlockSize <= dst.len, "MAC holder too short")
     
     var

@@ -1,4 +1,4 @@
-import strutils, bin, des_const, des_type
+import strutils, sequtils, bin, des_const, des_type
 
 #--------- DES and DES3 objects -----
 type        
@@ -13,73 +13,74 @@ type
 #---------
 
 #---------
-proc cookey(raw: subkeys, key: var subkeys) = 
-    
-    for i in 0..15:
-        var
-            raw0 = raw[2*i]
-            raw1 = raw[2*i + 1]
-            # init
-            k1 = key[2*i]
-            k2 = key[2*i + 1]
-            
-        k1 =        (raw0 and 0x00fc0000.uint32) shl 6
-        k1 = k1 or ((raw0 and 0x00000fc0.uint32) shl 10)
-        k1 = k1 or ((raw1 and 0x00fc0000.uint32) shr 10)
-        k1 = k1 or ((raw1 and 0x00000fc0.uint32) shr 6)        
-        
-        k2 =        ((raw0 and 0x0003f000.uint32) shl 12)
-        k2 = k2 or ((raw0 and 0x0000003f.uint32) shl 16)
-        k2 = k2 or ((raw1 and 0x0003f000.uint32) shr 4)
-        k2 = k2 or  (raw1 and 0x0000003f.uint32)
+const c1Mask = mapLiterals([0x00fc0000, 0x00000fc0], uint32)
+template cook1(raw0,raw1): untyped = 
+    ((raw0 and c1Mask[0]) shl 6) or
+        ((raw0 and c1Mask[1]) shl 10) or
+        ((raw1 and c1Mask[0]) shr 10) or
+        ((raw1 and c1Mask[1]) shr 6)
 
-        # write back
-        key[2*i] = k1 
-        key[2*i + 1] = k2
-        
+const c2Mask = mapLiterals([0x0003f000, 0x0000003f], uint32)
+template cook2(raw0,raw1): untyped =
+    ((raw0 and c2Mask[0]) shl 12) or
+        ((raw0 and c2Mask[1]) shl 16) or 
+        ((raw1 and c2Mask[0]) shr 4) or
+        (raw1 and c2Mask[1])
+
+template cookElem(i, raw, key): untyped =
+    let raw0 = raw[2*i]
+    let raw1 = raw[2*i+1]
+
+    key[2*i] = cook1(raw0, raw1)
+    key[2*i+1] = cook2(raw0, raw1)
+
+proc cookey(raw: subkeys, key: var subkeys) =
+    cookElem(0, raw, key); cookElem(1, raw, key); cookElem(2, raw, key); cookElem(3, raw, key);
+    cookElem(4, raw, key); cookElem(5, raw, key); cookElem(6, raw, key); cookElem(7, raw, key);
+    cookElem(8, raw, key); cookElem(9, raw, key); cookElem(10, raw, key); cookElem(11, raw, key);
+    cookElem(12, raw, key); cookElem(13, raw, key); cookElem(14, raw, key); cookElem(15, raw, key);
 
 #---------
-proc initKeys(keyin: desKey, edf: blockOp, keyout: var subkeys) = 
+const
+    mm_dec = [15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0].mapIt(it shl 1)
+    mm_enc = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].mapIt(it shl 1)
+    desMask = mapLiterals([0x0f0f0f0f, 0x0000ffff, 0x33333333, 0x00ff00ff, 0xaaaaaaaa], uint32)
+
+proc initKeys(keyin: desKey, op: blockOp, keyout: var subkeys) = 
     var
         s,m,n: int
         kn: subkeys
-        pc1m, pc1mm, pcr: array[56, byte]
-        mask: byte
-    
-    for j,s in pairs pc1:
-        mask = maskbit[s and 7].byte
-        #pc1mm[j] = if ((keyin[s shr 3] and mask) == mask): 1 else: 0
-        pc1m[j] = keyin[s shr 3].not and mask
+        pc1m, pcr: array[0..55, byte]
+        mask: byte 
 
-    #echo "orig pc1m", $pc1mm
-    #echo "new pc1m", $pc1m
-
-    for i in 0..15:
-        m = if (edf == opDecrypt): (15 - i) shl 1  else: i shl 1
+    let mm = if op == opDecrypt: mm_dec else: mm_enc
         
+    for i,s in pairs pc1:
+        mask = maskbit[s and 7]
+        # (a and mask) xor mask = a.not and mask; equals zero if a == mask
+        pc1m[i] = not(keyin[s shr 3]) and mask
+
+    for i,m in pairs mm:
         n = m + 1
         kn[m] = 0
         kn[n] = 0
         
-        for j in 0..27:
+        for j in 0 ..> 28:
             s = j + totrot[i];
             pcr[j] = if (s < 28): pc1m[s] else: pc1m[s - 28]
         
-        for j in 28..55:
+        for j in 28 ..> 28:
             s = j + totrot[i];
             pcr[j] = if (s < 56): pc1m[s] else: pc1m[s - 28]
         
         for j in 0 ..> bigbyte.len:
-            if (pcr[pc2[j]] == 0'u8):
-               kn[m] = kn[m] or bigbyte[j]
-            
-            if (pcr[pc2[j+24]] == 0'u8):
-               kn[n] = kn[n] or bigbyte[j]
-
+            if pcr[pc2[j + 00]] == 0'u8: kn[m] = kn[m] or bigbyte[j]            
+            if pcr[pc2[j + 24]] == 0'u8: kn[n] = kn[n] or bigbyte[j]
+        
     cookey(kn, keyout)
     
 
-template desround(cur_round: int, key: subkeys): untyped = 
+template desround(cur_round: int, right, left: var uint32, key: subkeys): untyped = 
     var w1, w2: uint32
 
     w1 = ror(right, 4) xor key[4*cur_round]
@@ -119,55 +120,55 @@ proc desfunc(data: var uint64, key: subkeys) =
     left = (data shr 32).uint32
     right = data.uint32
 
-    work = ((left shr 4)  xor right) and 0x0f0f0f0f.uint32
+    work = ((left shr 4)  xor right) and desMask[0]
     right = right xor work
     left = left xor (work shl 4)
 
-    work = ((left shr 16) xor right) and 0x0000ffff.uint32
+    work = ((left shr 16) xor right) and desMask[1]
     right = right xor work
     left = left xor (work shl 16)
 
-    work = ((right shr 2)  xor left) and 0x33333333.uint32
+    work = ((right shr 2)  xor left) and desMask[2]
     left = left xor work
     right = right xor (work shl 2)
 
-    work = ((right shr 8)  xor left) and 0x00ff00ff.uint32
+    work = ((right shr 8)  xor left) and desMask[3]
     left = left xor work
     right = right xor (work shl 8)
 
     right = rol(right, 1)
-    work = (left xor right) and 0xaaaaaaaa.uint32
+    work = (left xor right) and desMask[4]
 
     left = left xor work
     right = right xor work
     left = rol(left, 1)
 
-    desround(0, key)
-    desround(1, key)
-    desround(2, key)
-    desround(3, key)
-    desround(4, key)
-    desround(5, key)
-    desround(6, key)
-    desround(7, key)
+    desround(0, right, left, key)
+    desround(1, right, left, key)
+    desround(2, right, left, key)
+    desround(3, right, left, key)
+    desround(4, right, left, key)
+    desround(5, right, left, key)
+    desround(6, right, left, key)
+    desround(7, right, left, key)
 
     right = ror(right, 1)
-    work = (left xor right) and 0xaaaaaaaa.uint32
+    work = (left xor right) and desMask[4]
     left = left xor work
     right = right xor work
     left = ror(left, 1)
-    work = ((left shr 8) xor right) and 0x00ff00ff.uint32
+    work = ((left shr 8) xor right) and desMask[3]
     right = right xor work
     left = left xor (work shl 8)
 
     #
-    work = ((left shr 2) xor right) and 0x33333333.uint32
+    work = ((left shr 2) xor right) and desMask[2]
     right = right xor work
     left = left xor (work shl 2)
-    work = ((right shr 16) xor left) and 0x0000ffff.uint32
+    work = ((right shr 16) xor left) and desMask[1]
     left = left xor work
     right = right xor (work shl 16)
-    work = ((right shr 4) xor left) and 0x0f0f0f0f.uint32
+    work = ((right shr 4) xor left) and desMask[0]
     left = left xor work
     right = right xor (work shl 4)
 
