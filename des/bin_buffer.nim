@@ -44,7 +44,7 @@ proc `[]=`*[T](buff: binBuffer, i: int|BackwardsIndex, val: T) =
     when i is int: n = i
     else: n = buff.len - i.int
         
-    if n  > buff.len.pred:
+    if n > buff.len.pred:
         raise newException(IndexError, "Invalid index: " & $n)
 
     when T is char:

@@ -106,11 +106,18 @@ echo "dataMasked(xor buff/ seq) = ", $dataMasked
 # tests with inplace masking
 
 let a = ["a0","a1","a2","a3","a4","a5","a6","a7","a8","a9"]
-echo a[5 ..> 3]
-echo a[5 ..> ^3]
+echo a[5 ..> 3]    # @["a5", "a6", "a7"]
+echo a[5 ..> ^3]   # @["a2", "a3", "a4"]
+echo a[^4 ..> 3]   # @["a6", "a7", "a8"]
+echo a[^4 ..> ^6]  # @["a0", "a1", "a2", "a3", "a4", "a5"]
 
 echo "ascending indeces:"
 for i in 5 ..> 3: echo i
 
 echo "descending indeces:"
 for i in 5 ..> ^7: echo i
+
+proc test: string = "hello"
+
+assert( x := test() == "hello", "Value '$#' not matching expectation" % $x)
+assert("hello" == (y := test()), "Value $# not matching expectation" % $y)

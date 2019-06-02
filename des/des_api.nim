@@ -109,7 +109,7 @@ proc setIV*(cipher: desCipher, initVector: uint64) =
     ## .. code-block::
     ##      des.setIV(0'u64)
     
-    cipher.iv = initVector.int64
+    cipher.iv = initVector
 
 proc restrict*(cipher: desCipher, useSingleDes: bool = true) =
     # only applicable to des2 and des3
@@ -134,7 +134,7 @@ proc encrypt*[T](cipher: desCipher; src: T; dst: var openArray[byte]; mode: bloc
     var
         pos = 0
         n = src.len div desBlocksize
-        v, d: int64
+        v, d: uint64
 
     doAssert(n*desBlockSize <= dst.len, "Encrypt holder too short")
     
@@ -157,7 +157,7 @@ proc decrypt*[T](cipher: desCipher; src: T; dst: var openArray[byte]; mode: bloc
     var
         pos = 0
         n = src.len div desBlocksize
-        v, d: int64
+        v, d: uint64
 
     # mod 8 is: val and 0x07
     doAssert((src.len and desBlockSize.pred) == 0, "Input incomplete block")
@@ -190,7 +190,7 @@ proc mac*[T](cipher: desCipher; src: T; dst: var desBlock; version: macVersion; 
         n = src.len div desBlocksize
         padBlock: desBlock
         pos = 0
-        s, d: int64
+        s, d: uint64
 
     let hasPadding = lastBlock(src, padBlock, pad, enforceFullBlockPadding)
     

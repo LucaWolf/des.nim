@@ -5,13 +5,13 @@ const maskbit* = [0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01]
 
 #-----------------
 proc rol*[T](x: T, y: int8): T =
-    let n = 8 * sizeof(x).T # how many bits in x
-    result = (x shl (y and n.pred)) or (x shr (n - (y and n.pred)))
+    let n = T(8 * sizeof(x)) # how many bits in x
+    result = (x shl (y.T and n.pred)) or (x shr (n - (y.T and n.pred)))
 
 #-----------------
 proc ror*[T](x: T, y: int8): T =
-    let n = 8 * sizeof(x).T # how many bits in x
-    result = (x shr (y and n.pred)) or (x shl (n - (y and n.pred)))
+    let n = T(8 * sizeof(x)) # how many bits in x
+    result = (x shr (y.T and n.pred)) or (x shl (n - (y.T and n.pred)))
 
 proc `<--`*[D,S](d: var D, s: S) =
     ## Assigns a value of type 'S' to a value of type 'D'
@@ -101,15 +101,21 @@ template applyWith*(buff, mask: typed, action: untyped): typed =
 
 #-----------------------
 template `..>`*[T, U](a: T, b: U): untyped =
+    ## Binary slice operator constructing an interval based on offsset 'a' and length 'b'.
+    ## 'b' can always be a BackwardsIndex. When combined with [] slicing, 'a' can also be a BackwardsIndex.
+    ## When the length is BackwardsIndex then the resulting interval provides 'b' indeces before (excluding) 'a',
+    ## otherwise the resulting interval provides 'b' indeces starting with (including) 'a'
 
     when b is BackwardsIndex:
-        # most likely you want 'b' elements before (excluding) the 'a' index
-        #ex: a[5 ..> ^3] returns a[2..4]
-        (a - T(b)) .. a.pred
+        when a is BackwardsIndex:
+            ^(a.int + b.int) .. ^(succ(a.int))
+        else:
+            (a - T(b)) .. pred(a)
     else:
-        # most likely you want 'b' elements starting with (including) the 'a' index
-        #ex: a[5 ..> 3] returns a[5..7]
-        a .. pred(a + b)
+        when a is BackwardsIndex:
+            a .. ^(U(a) - pred(b))
+        else:
+            a .. pred(a + b)
     
 
 iterator `..>`*[T, U](a: T, b: U): T =
@@ -185,3 +191,7 @@ template loadHigh*[T: SomeInteger](data: typed, value: var T, offset: int = 0) =
     else:
         assert(false, "Invalid input type: " & $sizeof(value))
 
+
+template `:=`*(a, b): untyped {.dirty.}=
+    let a = b;
+    a
