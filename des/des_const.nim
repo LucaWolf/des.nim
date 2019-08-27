@@ -3,14 +3,14 @@ import bin, sequtils
 const desBlockSize* = 8
 
 # mask for bit test and set
-const bigbyte* = [
+const bigbyte* = mapLiterals([
     0x800000,  0x400000,  0x200000,  0x100000,
     0x80000,   0x40000,   0x20000,   0x10000,
     0x8000,    0x4000,    0x2000,    0x1000,
     0x800,     0x400,     0x200,     0x100,
     0x80,      0x40,      0x20,      0x10,
     0x8,       0x4,       0x2,       0x1
-    ].mapLiterals(uint32)
+    ], uint32)
 
 
 # Use the key schedule specific in the standard (ANSI X3.92-1981)

@@ -8,3 +8,5 @@ nimsuggest.log
 *.bak
 *.*~
 *.tmp
+des/htmldocs
+

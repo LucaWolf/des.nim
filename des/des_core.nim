@@ -1,4 +1,4 @@
-import strutils, sequtils, bin, des_const, des_type
+import strutils, sequtils, bin, des_const, des_type, bitops
 
 #--------- DES and DES3 objects -----
 type        
@@ -48,15 +48,16 @@ const
 
 proc initKeys(keyin: desKey, op: blockOp, keyout: var subkeys) = 
     var
-        s,m,n: int
+        s,n: int
         kn: subkeys
         pc1m, pcr: array[0..55, byte]
         mask: byte 
 
+    let bit8Mask = bigbyte[^8..^1]
     let mm = if op == opDecrypt: mm_dec else: mm_enc
         
     for i,s in pairs pc1:
-        mask = maskbit[s and 7]
+        mask = byte(bit8Mask[s and 7])
         # (a and mask) xor mask = a.not and mask; equals zero if a == mask
         pc1m[i] = not(keyin[s shr 3]) and mask
 
@@ -83,7 +84,7 @@ proc initKeys(keyin: desKey, op: blockOp, keyout: var subkeys) =
 template desround(cur_round: int, right, left: var uint32, key: subkeys): untyped = 
     var w1, w2: uint32
 
-    w1 = ror(right, 4) xor key[4*cur_round]
+    w1 = rotateRightBits(right, 4) xor key[4*cur_round]
     w2 = right xor key[4*cur_round + 1]
 
     left = left xor (SP7[w1 and 0x3f] xor
@@ -97,7 +98,7 @@ template desround(cur_round: int, right, left: var uint32, key: subkeys): untype
             SP2[(w2 shr 24) and 0x3f])
 
     #
-    w1 = ror(left, 4) xor key[4*cur_round + 2]
+    w1 = rotateRightBits(left, 4) xor key[4*cur_round + 2]
     w2  = left xor key[4*cur_round + 3]
 
     right = right xor (SP7[w1 and 0x3f] xor
@@ -136,12 +137,12 @@ proc desfunc(data: var uint64, key: subkeys) =
     left = left xor work
     right = right xor (work shl 8)
 
-    right = rol(right, 1)
+    right = rotateLeftBits(right, 1)
     work = (left xor right) and desMask[4]
 
     left = left xor work
     right = right xor work
-    left = rol(left, 1)
+    left = rotateLeftBits(left, 1)
 
     desround(0, right, left, key)
     desround(1, right, left, key)
@@ -152,11 +153,11 @@ proc desfunc(data: var uint64, key: subkeys) =
     desround(6, right, left, key)
     desround(7, right, left, key)
 
-    right = ror(right, 1)
+    right = rotateRightBits(right, 1)
     work = (left xor right) and desMask[4]
     left = left xor work
     right = right xor work
-    left = ror(left, 1)
+    left = rotateRightBits(left, 1)
     work = ((left shr 8) xor right) and desMask[3]
     right = right xor work
     left = left xor (work shl 8)

@@ -56,7 +56,7 @@ proc createPEK*(ipek: dukptKey, ksn: dukptKsn): dukptKey =
     #  ksn(3) = 9876543210E0000B (B = A|0001),
     # ===============================================
 
-    for n in (8*ksnSize) ..> ^ksnCounterBits:
+    for n in countdown(20,0):
         if testBit(ksn, n):
             setBit(ksnAccumulator, n)
             result.pekBlackBox(ksnAccumulator)
