@@ -1,56 +1,39 @@
-# Copied from https://github.com/nim-lang/Nim/wiki/TravisCI
 language: c
-env:
-  # Build and test against the master and devel branches of Nim
-  # master is a dead branch according to the 
-  #- BRANCH=master
-  # devel may be too cutting edge
-  - BRANCH=devel
-  # try with stable instead?
-  - BRANCH=stable
-compiler:
-  # Build and test using both gcc and clang
-  - gcc
-  - clang
-matrix:
-  allow_failures:
-    # Ignore failures when building against the devel Nim branch
-    - env: BRANCH=devel
-  fast_finish: true
-install:
-  - |
-    if [ ! -x nim-$BRANCH/bin/nim ]; then
-      git clone -b $BRANCH --depth 1 git://github.com/nim-lang/nim nim-$BRANCH/
-      cd nim-$BRANCH
-      git clone -b $BRANCH --depth 1 git://github.com/nim-lang/csources csources/
-      cd csources
-      sh build.sh
-      cd ..
-      rm -rf csources
-      bin/nim c koch
-      ./koch boot -d:release
-    else
-      cd nim-$BRANCH
-      git fetch origin
-      if ! git merge FETCH_HEAD | grep "Already up-to-date"; then
-        bin/nim c koch
-        ./koch boot -d:release
-      fi
-    fi
-    cd ..
-before_script:
-    - export PATH="nim-$BRANCH/bin${PATH:+:$PATH}"
-script:
-    # Replace uppercase strings!
-    - nim c --cc:$CC --verbosity:0 -r tests/bin_test.nim
-    - nim c --cc:$CC --verbosity:0 -r tests/des_test.nim
-    - nim c --cc:$CC --verbosity:0 -r tests/dukpt_test.nim
-    # Optional: build docs.
-    #- nim doc --docSeeSrcUrl:https://github.com/AUTHOR/MYPROJECT/blob/master --project MYFILE.nim
+
+cache: ccache
 cache:
   directories:
-    - nim-master
-    - nim-devel
+  - .cache
+
+matrix:
+  include:
+    # Build and test against the master (stable) and devel branches of Nim
+    - os: linux
+      env: CHANNEL=stable
+      compiler: gcc
+
+    - os: linux
+      env: CHANNEL=devel
+      compiler: gcc
+
+  allow_failures:
+    # Ignore failures when building against the devel Nim branch
+    - env: CHANNEL=devel
+  fast_finish: true
+
+
+install:
+  - export CHOOSENIM_NO_ANALYTICS=1
+  - curl https://nim-lang.org/choosenim/init.sh -sSf > init.sh
+  - sh init.sh -y
+  - export PATH=~/.nimble/bin:$PATH
+  - echo "export PATH=~/.nimble/bin:$PATH" >> ~/.profile
+  - choosenim $CHANNEL
+
+script:
+    - nimble refresh
+    - nimble test
+
 branches:
   except:
     - gh-pages

@@ -1,5 +1,5 @@
 import strutils, sequtils
-import ../des/bin
+import des
 
 
 var
@@ -113,9 +113,6 @@ assert(a[5 ..> ^3] == ["a2", "a3", "a4"], "\nnegative slice failed")
 assert(a[^4 ..> 3] == ["a6", "a7", "a8"], "\npositive slice end failed")
 assert(a[^4 ..> ^6] == ["a0", "a1", "a2", "a3", "a4", "a5"], "\nnegative slice end failed")
 
-
-echo "=== passed ==="
-
 let val = @[0b1100_1001'i8, 0b0001_0100'i8]
 for n in {2,4,8,11,14,15}:
     assert(testBit(val, n), "Bit $# is not set" % $n)
@@ -126,4 +123,7 @@ assert(res1 == @[0x8A, 0x4B, 0x8C, 0x4D], "mapWith short seq failed")
 var res2 = @[0x0A, 0x0B, 0x0C, 0x0D]
 applyWith(res2, @[0x88, 0x48], `xor`)
 assert(res2 == @[0x82, 0x43, 0x84, 0x45], $res2.mapIt(toHex(it)))
+
+echo "=== passed ==="
+
 
