@@ -2,9 +2,12 @@
 language: c
 env:
   # Build and test against the master and devel branches of Nim
-  - BRANCH=master
-  # this never worked... give-up on DEVEL:
-  # - BRANCH=devel
+  # master is a dead branch according to the 
+  #- BRANCH=master
+  # devel may be too cutting edge
+  - BRANCH=devel
+  # try with stable instead?
+  - BRANCH=stable
 compiler:
   # Build and test using both gcc and clang
   - gcc
@@ -39,6 +42,7 @@ before_script:
     - export PATH="nim-$BRANCH/bin${PATH:+:$PATH}"
 script:
     # Replace uppercase strings!
+    - nim c --cc:$CC --verbosity:0 -r tests/bin_test.nim
     - nim c --cc:$CC --verbosity:0 -r tests/des_test.nim
     - nim c --cc:$CC --verbosity:0 -r tests/dukpt_test.nim
     # Optional: build docs.
