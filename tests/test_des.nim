@@ -1,4 +1,4 @@
-import strutils, sequtils
+import strutils
 import des
 
 proc toString(buff: seq[byte]): string =

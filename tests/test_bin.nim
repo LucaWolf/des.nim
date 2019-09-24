@@ -1,5 +1,4 @@
-import strutils, sequtils
-import des
+import strutils, sequtils, bin
 
 
 var
