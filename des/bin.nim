@@ -159,7 +159,6 @@ template copyTo*(src: typed; frame: Slice[int]; dst: typed; at: int = 0) =
     ##
     ## dst (var) is not protected from overflow
     var n = min(frame.b - frame.a, pred(dst.len - at))
-    var i = 0
 
     for i in 0 .. n:
         dst[at + i] <-- src[frame.a + i]

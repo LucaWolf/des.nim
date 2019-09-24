@@ -1,4 +1,4 @@
-import bin, sequtils
+import sequtils
     
 const desBlockSize* = 8
 

@@ -1,4 +1,3 @@
-import strutils, sequtils
 import des_api, dukpt_const
 export dukpt_const
 

@@ -1,4 +1,4 @@
-import strutils, sequtils, bin, des_const, des_type, bitops
+import sequtils, bin, des_const, des_type, bitops
 
 #--------- DES and DES3 objects -----
 type        
@@ -119,7 +119,7 @@ proc desfunc(data: var uint64, key: subkeys) =
         work, right, left: uint32
 
     left = (data shr 32).uint32
-    right = data.uint32
+    right = (data and high(uint32)).uint32
 
     work = ((left shr 4)  xor right) and desMask[0]
     right = right xor work

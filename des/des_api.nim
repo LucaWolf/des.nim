@@ -139,10 +139,25 @@ proc encrypt*[T](cipher: desCipher; src: T; dst: var openArray[byte]; mode: bloc
     ## Example:
     ##
     ## .. code-block::
-    ##      des.encrypt(dataClear, dataEnc, modeECB)
-    ##      var padBlock = dataClear.lastBlock(padISO7816, true)
-    ##      if padBlock != nil:
-    ##          des.encrypt(padBlock, lastEnc, modeECB)
+    ##      ar desCrypter = newDesCipher(des.fromHex("0123456789ABCDEF_12345678AABBCCDD"))
+    ##
+    ##     var padBlock: desBlock
+    ##     var dataEnc: seq[byte]
+    ##     let dataClear = "this is your ascii input -- or use fromHex()"
+    ##
+    ##     # output data must be pre-allocated
+    ##     let n  = (dataClear.len + 7) div desBlockSize
+    ##     dataEnc.setlen(n * 8)
+    ##
+    ##     # input is only procesed for multiple of 8 bytes
+    ##     desCrypter.encrypt(dataClear, dataEnc, modeCBC)
+    ##
+    ##     # process the incomplete last block (if any)
+    ##     if lastBlock(dataClear, padBlock, padPKCS5, false):
+    ##         var tmp: desBlock # cannot write directly into slice (openArray incompatible?)
+    ##         desCrypter.encrypt(padBlock, tmp, modeCBC)
+    ##         dataEnc[^8..^1] = tmp
+
     var
         pos = 0
         n = src.len div desBlocksize
